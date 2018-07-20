@@ -1,6 +1,8 @@
 """
 Dependency-Graph representation of Pipeline API terms.
 """
+import uuid
+
 from networkx import (
     DiGraph,
     topological_sort,
@@ -14,6 +16,14 @@ from .term import LoadableTerm
 
 class CyclicDependency(Exception):
     pass
+
+
+# This sentinel value is uniquely-generated on every iteration so that we can
+# guarantee that it never conflicts with a user-provided column name.
+#
+# (Yes, technically, a user can import this file and pass this as the name of a
+# column. If you do that you deserve whatever bizarre failure you cause.)
+_SCREEN_NAME = 'screen_' + uuid.uuid4().hex
 
 
 class TermGraph(object):
@@ -92,6 +102,12 @@ class TermGraph(object):
         Dict mapping names to designated output terms.
         """
         return self._outputs
+
+    @property
+    def screen_name(self):
+        """Name of the specially-designated ``screen`` term for the pipeline.
+        """
+        return _SCREEN_NAME
 
     def execution_order(self, refcounts):
         """

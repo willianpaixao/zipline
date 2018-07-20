@@ -1,4 +1,3 @@
-
 from zipline.errors import UnsupportedPipelineOutput
 from zipline.utils.input_validation import (
     expect_element,
@@ -6,7 +5,7 @@ from zipline.utils.input_validation import (
     optional,
 )
 
-from .graph import ExecutionPlan, TermGraph
+from .graph import ExecutionPlan, TermGraph, _SCREEN_NAME
 from .filters import Filter
 from .term import AssetExists, ComputableTerm, Term
 
@@ -153,7 +152,6 @@ class Pipeline(object):
         self._screen = screen
 
     def to_execution_plan(self,
-                          screen_name,
                           default_screen,
                           all_dates,
                           start_date,
@@ -163,8 +161,6 @@ class Pipeline(object):
 
         Parameters
         ----------
-        screen_name : str
-            Name to supply for self.screen.
         default_screen : zipline.pipeline.term.Term
             Term to use as a screen if self.screen is None.
         all_dates : pd.DatetimeIndex
@@ -174,36 +170,43 @@ class Pipeline(object):
             The first date of requested output.
         end_date : pd.Timestamp
             The last date of requested output.
+
+        Returns
+        -------
+        graph : zipline.pipeline.graph.ExecutionPlan
+            Graph encoding term dependencies, including metadata about extra
+            row requirements.
         """
         return ExecutionPlan(
-            self._prepare_graph_terms(screen_name, default_screen),
+            self._prepare_graph_terms(default_screen),
             all_dates,
             start_date,
             end_date,
         )
 
-    def to_simple_graph(self, screen_name, default_screen):
+    def to_simple_graph(self, default_screen):
         """
         Compile into a simple TermGraph with no extra row metadata.
 
         Parameters
         ----------
-        screen_name : str
-            Name to supply for self.screen.
         default_screen : zipline.pipeline.term.Term
             Term to use as a screen if self.screen is None.
-        """
-        return TermGraph(
-            self._prepare_graph_terms(screen_name, default_screen)
-        )
 
-    def _prepare_graph_terms(self, screen_name, default_screen):
+        Returns
+        -------
+        graph : zipline.pipeline.graph.TermGraph
+            Graph encoding term dependencies.
+        """
+        return TermGraph(self._prepare_graph_terms(default_screen))
+
+    def _prepare_graph_terms(self, default_screen):
         """Helper for to_graph and to_execution_plan."""
         columns = self.columns.copy()
         screen = self.screen
         if screen is None:
             screen = default_screen
-        columns[screen_name] = screen
+        columns[_SCREEN_NAME] = screen
         return columns
 
     @expect_element(format=('svg', 'png', 'jpeg'))
@@ -216,7 +219,7 @@ class Pipeline(object):
         format : {'svg', 'png', 'jpeg'}
             Image format to render with.  Default is 'svg'.
         """
-        g = self.to_simple_graph('', AssetExists())
+        g = self.to_simple_graph(AssetExists())
         if format == 'svg':
             return g.svg
         elif format == 'png':

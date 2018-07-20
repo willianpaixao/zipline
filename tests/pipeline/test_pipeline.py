@@ -167,7 +167,10 @@ class PipelineTestCase(TestCase):
             graph, format, include_asset_exists = p.show_graph()
             self.assertIs(graph.outputs['f'], f)
             # '' is a sentinel used for screen if it's not supplied.
-            self.assertEqual(sorted(graph.outputs.keys()), ['', 'f'])
+            self.assertEqual(
+                sorted(graph.outputs.keys()),
+                ['f', graph.screen_name],
+            )
             self.assertEqual(format, 'svg')
             self.assertEqual(include_asset_exists, False)
 
@@ -175,15 +178,20 @@ class PipelineTestCase(TestCase):
             graph, format, include_asset_exists = p.show_graph(format='png')
             self.assertIs(graph.outputs['f'], f)
             # '' is a sentinel used for screen if it's not supplied.
-            self.assertEqual(sorted(graph.outputs.keys()), ['', 'f'])
+            self.assertEqual(
+                sorted(graph.outputs.keys()),
+                ['f', graph.screen_name]
+            )
             self.assertEqual(format, 'png')
             self.assertEqual(include_asset_exists, False)
 
         with patch_display_graph:
             graph, format, include_asset_exists = p.show_graph(format='jpeg')
             self.assertIs(graph.outputs['f'], f)
-            # '' is a sentinel used for screen if it's not supplied.
-            self.assertEqual(sorted(graph.outputs.keys()), ['', 'f'])
+            self.assertEqual(
+                sorted(graph.outputs.keys()),
+                ['f', graph.screen_name]
+            )
             self.assertEqual(format, 'jpeg')
             self.assertEqual(include_asset_exists, False)
 

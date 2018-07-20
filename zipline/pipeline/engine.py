@@ -281,9 +281,7 @@ class SimplePipelineEngine(PipelineEngine):
                 "start_date=%s, end_date=%s" % (start_date, end_date)
             )
 
-        screen_name = uuid4().hex
         graph = pipeline.to_execution_plan(
-            screen_name,
             self._root_mask_term,
             self._calendar,
             start_date,
@@ -314,7 +312,7 @@ class SimplePipelineEngine(PipelineEngine):
         return self._to_narrow(
             graph.outputs,
             results,
-            results.pop(screen_name),
+            results.pop(graph.screen_name),
             dates[extra_rows:],
             assets,
         )
