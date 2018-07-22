@@ -33,6 +33,14 @@ from .core import (
     tmp_dir,
 )
 from .debug import debug_mro_failure
+from ..data.adjustments import (
+    SQLiteAdjustmentReader,
+    SQLiteAdjustmentWriter,
+)
+from ..data.bcolz_daily_bars import (
+    BcolzDailyBarReader,
+    BcolzDailyBarWriter,
+)
 from ..data.data_portal import (
     DataPortal,
     DEFAULT_MINUTE_HISTORY_PREFETCH,
@@ -51,12 +59,7 @@ from ..data.resample import (
     minute_frame_to_session_frame,
     MinuteResampleSessionBarReader
 )
-from ..data.us_equity_pricing import (
-    BcolzDailyBarReader,
-    BcolzDailyBarWriter,
-    SQLiteAdjustmentReader,
-    SQLiteAdjustmentWriter,
-)
+
 from ..finance.trading import SimulationParameters
 from ..utils.classproperty import classproperty
 from ..utils.final import FinalMeta, final

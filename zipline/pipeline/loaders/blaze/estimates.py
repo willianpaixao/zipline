@@ -1,3 +1,4 @@
+from interface import implements
 from datashape import istabular
 
 from .core import (
@@ -26,7 +27,7 @@ from zipline.utils.input_validation import ensure_timezone, optionally
 from zipline.utils.preprocess import preprocess
 
 
-class BlazeEstimatesLoader(PipelineLoader):
+class BlazeEstimatesLoader(implements(PipelineLoader)):
     """An abstract pipeline loader for the estimates datasets that loads
     data from a blaze expression.
 
@@ -105,13 +106,13 @@ class BlazeEstimatesLoader(PipelineLoader):
         self._data_query_tz = data_query_tz
         self._checkpoints = checkpoints
 
-    def load_adjusted_array(self, columns, dates, assets, mask):
+    def load_adjusted_array(self, columns, dates, sids, mask):
         # Only load requested columns.
         requested_column_names = [self._columns[column.name]
                                   for column in columns]
 
         raw = load_raw_data(
-            assets,
+            sids,
             dates,
             self._data_query_time,
             self._data_query_tz,
@@ -126,7 +127,7 @@ class BlazeEstimatesLoader(PipelineLoader):
         ).load_adjusted_array(
             columns,
             dates,
-            assets,
+            sids,
             mask,
         )
 

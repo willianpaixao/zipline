@@ -11,16 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from numpy import (
-    iinfo,
-    uint32,
-)
-from trading_calendars import get_calendar
+from interface import implements
+from numpy import iinfo, uint32
 
-from zipline.data.us_equity_pricing import (
-    BcolzDailyBarReader,
-    SQLiteAdjustmentReader,
-)
+from zipline.country import CountryCode
 from zipline.lib.adjusted_array import AdjustedArray
 
 from .base import PipelineLoader
@@ -29,41 +23,13 @@ from .utils import shift_dates
 UINT32_MAX = iinfo(uint32).max
 
 
-class USEquityPricingLoader(PipelineLoader):
+class EquityPricingLoader(implements(PipelineLoader)):
+    """A PipelineLoader for loading daily OHLCV data.
     """
-    PipelineLoader for US Equity Pricing data
+    def __init__(self, readers):
+        self.readers = readers
 
-    Delegates loading of baselines and adjustments.
-    """
-
-    def __init__(self, raw_price_loader, adjustments_loader):
-        self.raw_price_loader = raw_price_loader
-        self.adjustments_loader = adjustments_loader
-
-        cal = self.raw_price_loader.trading_calendar or \
-            get_calendar("NYSE")
-
-        self._all_sessions = cal.all_sessions
-
-    @classmethod
-    def from_files(cls, pricing_path, adjustments_path):
-        """
-        Create a loader from a bcolz equity pricing dir and a SQLite
-        adjustments path.
-
-        Parameters
-        ----------
-        pricing_path : str
-            Path to a bcolz directory written by a BcolzDailyBarWriter.
-        adjusments_path : str
-            Path to an adjusments db written by a SQLiteAdjustmentWriter.
-        """
-        return cls(
-            BcolzDailyBarReader(pricing_path),
-            SQLiteAdjustmentReader(adjustments_path)
-        )
-
-    def load_adjusted_array(self, columns, dates, assets, mask):
+    def load_adjusted_array(self, columns, dates, sids, mask):
         # load_adjusted_array is called with dates on which the user's algo
         # will be shown data, which means we need to return the data that would
         # be known at the start of each date.  We assume that the latest data
@@ -77,12 +43,12 @@ class USEquityPricingLoader(PipelineLoader):
             colnames,
             start_date,
             end_date,
-            assets,
+            sids,
         )
         adjustments = self.adjustments_loader.load_adjustments(
             colnames,
             dates,
-            assets,
+            sids,
         )
 
         out = {}
@@ -93,3 +59,14 @@ class USEquityPricingLoader(PipelineLoader):
                 c.missing_value,
             )
         return out
+
+
+class USEquityPricingLoader(EquityPricingLoader):
+    """
+    Legacy special-case of EquityPricingLoader that only supports us equities.
+    """
+    def __init__(self, raw_price_loader, adjustments_loader):
+        loaders = {
+            CountryCode.UNITED_STATES: (raw_price_loader, adjustments_loader)
+        }
+        super(USEquityPricingLoader, self).__init__(loaders)

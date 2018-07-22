@@ -150,11 +150,11 @@ class RecordingPrecomputedLoader(PrecomputedLoader):
 
         self.load_calls = []
 
-    def load_adjusted_array(self, columns, dates, assets, mask):
+    def load_adjusted_array(self, columns, dates, sids, mask):
         self.load_calls.append(ColumnArgs(*columns))
 
         return super(RecordingPrecomputedLoader, self).load_adjusted_array(
-            columns, dates, assets, mask,
+            columns, dates, sids, mask,
         )
 
 
