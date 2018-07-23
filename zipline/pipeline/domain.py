@@ -45,7 +45,7 @@ class Domain(object):
 
 # TODO: Is this the casing convention we want for domains?
 USEquities = Domain('USEquities', CountryCode.UNITED_STATES, 'NYSE')
-CanadianEquities = Domain('CanadianEquities', CountryCode.CANADA, 'TSX')
+CanadaEquities = Domain('CanadaEquities', CountryCode.CANADA, 'TSX')
 # XXX: The actual country code for this is GB. Should we use that for the name
 # here?
 UKEquities = Domain('UKEquities', CountryCode.UNITED_KINGDOM, 'LSE')
@@ -80,7 +80,7 @@ def infer_domain(terms):
     """
     domains = {NotSpecified}
     for t in terms:
-        domains.update(t.domain)
+        domains.add(t.domain)
 
     if len(domains) == 1:
         return NotSpecified

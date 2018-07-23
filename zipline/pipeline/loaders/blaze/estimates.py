@@ -106,7 +106,7 @@ class BlazeEstimatesLoader(implements(PipelineLoader)):
         self._data_query_tz = data_query_tz
         self._checkpoints = checkpoints
 
-    def load_adjusted_array(self, columns, dates, sids, mask):
+    def load_adjusted_array(self, domain, columns, dates, sids, mask):
         # Only load requested columns.
         requested_column_names = [self._columns[column.name]
                                   for column in columns]
@@ -125,6 +125,7 @@ class BlazeEstimatesLoader(implements(PipelineLoader)):
             raw,
             {column.name: self._columns[column.name] for column in columns},
         ).load_adjusted_array(
+            domain,
             columns,
             dates,
             sids,
@@ -157,7 +158,7 @@ class BlazeSplitAdjustedEstimatesLoader(BlazeEstimatesLoader):
             **kwargs
         )
 
-    def load_adjusted_array(self, columns, dates, assets, mask):
+    def load_adjusted_array(self, domain, columns, dates, sids, mask):
         # Only load requested columns.
         requested_column_names = [self._columns[column.name]
                                   for column in columns]
@@ -169,7 +170,7 @@ class BlazeSplitAdjustedEstimatesLoader(BlazeEstimatesLoader):
         ]
 
         raw = load_raw_data(
-            assets,
+            sids,
             dates,
             self._data_query_time,
             self._data_query_tz,
@@ -185,9 +186,10 @@ class BlazeSplitAdjustedEstimatesLoader(BlazeEstimatesLoader):
             requested_spilt_adjusted_columns,
             self._split_adjusted_asof,
         ).load_adjusted_array(
+            domain,
             columns,
             dates,
-            assets,
+            sids,
             mask,
         )
 

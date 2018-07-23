@@ -295,9 +295,9 @@ class DataSetMeta(type):
             A new DataSet subclass with the same columns as ``self``, but
             specialized to ``domain``.
         """
-        # TODO_SS: Should this be an error?
         # We're already the specialization to this domain, so just return self.
         if domain == self.domain:
+            # TODO_SS: Should this be an error?
             return self
         elif self.domain is not NotSpecified:
             raise ValueError(

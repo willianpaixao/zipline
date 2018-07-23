@@ -886,7 +886,7 @@ class BlazeLoader(object):
             odo_kwargs,
         )
 
-    def load_adjusted_array(self, columns, dates, sids, mask):
+    def load_adjusted_array(self, domain, columns, dates, sids, mask):
         return merge(
             self.pool.imap_unordered(
                 partial(self._load_dataset, dates, sids, mask),

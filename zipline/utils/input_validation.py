@@ -835,3 +835,34 @@ class error_keywords(object):
 
 
 coerce_string = partial(coerce, string_types)
+
+
+def validate_keys(dict_, expected, funcname):
+    """Validate that a dictionary has an expected set of keys.
+    """
+    expected = set(expected)
+    received = set(dict_)
+
+    missing = expected - received
+    if missing:
+        raise ValueError(
+            "Missing keys in {}:\n"
+            "Expected Keys: {}\n"
+            "Received Keys: {}".format(
+                funcname,
+                sorted(expected),
+                sorted(received),
+            )
+        )
+
+    unexpected = received - expected
+    if unexpected:
+        raise ValueError(
+            "Unexpected keys in {}:\n"
+            "Expected Keys: {}\n"
+            "Received Keys: {}".format(
+                funcname,
+                sorted(expected),
+                sorted(received),
+            )
+        )

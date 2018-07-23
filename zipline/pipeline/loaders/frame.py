@@ -146,7 +146,7 @@ class DataFrameLoader(implements(PipelineLoader)):
             )
         return out
 
-    def load_adjusted_array(self, columns, dates, sids, mask):
+    def load_adjusted_array(self, domain, columns, dates, sids, mask):
         """
         Load data from our stored baseline.
         """

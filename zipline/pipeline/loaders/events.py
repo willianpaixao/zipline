@@ -224,7 +224,7 @@ class EventsLoader(implements(PipelineLoader)):
             out[c] = loader.load_adjusted_array([c], dates, sids, mask)[c]
         return out
 
-    def load_adjusted_array(self, columns, dates, sids, mask):
+    def load_adjusted_array(self, domain, columns, dates, sids, mask):
         n, p = self.split_next_and_previous_event_columns(columns)
         return merge(
             self.load_next_events(n, dates, sids, mask),

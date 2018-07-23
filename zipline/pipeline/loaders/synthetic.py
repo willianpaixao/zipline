@@ -78,7 +78,7 @@ class PrecomputedLoader(implements(PipelineLoader)):
 
         self._loaders = loaders
 
-    def load_adjusted_array(self, columns, dates, sids, mask):
+    def load_adjusted_array(self, domain, columns, dates, sids, mask):
         """
         Load by delegating to sub-loaders.
         """
@@ -89,7 +89,7 @@ class PrecomputedLoader(implements(PipelineLoader)):
             except KeyError:
                 raise ValueError("Couldn't find loader for %s" % col)
             out.update(
-                loader.load_adjusted_array([col], dates, sids, mask)
+                loader.load_adjusted_array(domain, [col], dates, sids, mask)
             )
         return out
 

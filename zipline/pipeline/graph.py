@@ -18,7 +18,7 @@ class CyclicDependency(Exception):
     pass
 
 
-# This sentinel value is uniquely-generated on every iteration so that we can
+# This sentinel value is uniquely-generated at import time so that we can
 # guarantee that it never conflicts with a user-provided column name.
 #
 # (Yes, technically, a user can import this file and pass this as the name of a
@@ -160,11 +160,11 @@ class TermGraph(object):
             refcounts[t] += 1
 
         for t in initial_terms:
-            self._decref_depencies_recursive(t, refcounts, set())
+            self._decref_dependencies_recursive(t, refcounts, set())
 
         return refcounts
 
-    def _decref_depencies_recursive(self, term, refcounts, garbage):
+    def _decref_dependencies_recursive(self, term, refcounts, garbage):
         """
         Decrement terms recursively.
 
@@ -267,9 +267,6 @@ class ExecutionPlan(TermGraph):
                        start_date,
                        end_date,
                        min_extra_rows):
-        """
-        Compute ``extra_rows`` for transitive dependencies of ``root_terms``
-        """
         # A term can require that additional extra rows beyond the minimum be
         # computed.  This is most often used with downsampled terms, which need
         # to ensure that the first date is a computation date.

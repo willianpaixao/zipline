@@ -1,3 +1,5 @@
+import six
+
 from zipline.errors import UnsupportedPipelineOutput
 from zipline.utils.input_validation import (
     expect_element,
@@ -5,8 +7,10 @@ from zipline.utils.input_validation import (
     optional,
 )
 
+from .domain import Domain, infer_domain
 from .graph import ExecutionPlan, TermGraph, _SCREEN_NAME
 from .filters import Filter
+from .sentinels import NotSpecified, NotSpecifiedType
 from .term import AssetExists, ComputableTerm, Term
 
 
@@ -32,13 +36,16 @@ class Pipeline(object):
     screen : zipline.pipeline.term.Filter, optional
         Initial screen.
     """
-    __slots__ = ('_columns', '_screen', '__weakref__')
+    __slots__ = ('_columns', '_screen', '_domain', '__weakref__')
 
+    # TODO_SS: It's a little weird that we're usiong None for two of these
+    # sentinels and using NotSpecified for the other.
     @expect_types(
         columns=optional(dict),
         screen=optional(Filter),
+        domain=(Domain, NotSpecifiedType),
     )
-    def __init__(self, columns=None, screen=None):
+    def __init__(self, columns=None, screen=None, domain=NotSpecified):
         if columns is None:
             columns = {}
 
@@ -55,6 +62,7 @@ class Pipeline(object):
 
         self._columns = columns
         self._screen = screen
+        self._domain = domain
 
     @property
     def columns(self):
@@ -232,7 +240,41 @@ class Pipeline(object):
             raise AssertionError("Unknown graph format %r." % format)
 
     @staticmethod
-    @expect_types(term=Term, column_name=str)
+    @expect_types(term=Term, column_name=six.string_types)
     def validate_column(column_name, term):
         if term.ndim == 1:
             raise UnsupportedPipelineOutput(column_name=column_name, term=term)
+
+    @expect_types(default=(Domain, NotSpecifiedType))
+    def domain(self, default):
+        """
+        Get the domain for this pipeline.
+
+        If an explicit domain was provided at construction time, return it.
+
+        Otherwise, infer a domain from the registered columns.
+
+        Parameters
+        ----------
+        default : zipline.pipeline.Domain or NotSpecified
+
+        Returns
+        -------
+        domain : zipline.pipeline.Domain or NotSpecified
+            The domain for the pipeline, or NotSpecified if no domain was
+            provided and none can be inferred.
+        """
+        inferred = infer_domain(self.columns.values())
+
+        if inferred is NotSpecified:
+            # TODO_SS: Whose job should it be to barf on a NotSpecified domain?
+            return self._domain
+        elif self._domain is NotSpecified or self._domain == inferred:
+            return inferred
+
+        # We inferred a concrete domain that doesn't match the concrete
+        # domain passed by the user. Barf.
+        raise ValueError(
+            "Conflicting domains in Pipeline. Inferred {}, but {} was "
+            "passed at construction.".format(inferred, self._domain)
+        )

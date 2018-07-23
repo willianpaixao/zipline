@@ -82,6 +82,10 @@ cdef class Asset:
     def exchange_full(self):
         return self.exchange_info.name
 
+    @property
+    def country_code(self):
+        return self.exchange_info.country_code
+
     def __int__(self):
         return self.sid
 
@@ -209,8 +213,7 @@ cdef class Asset:
         -------
         boolean: whether the asset's exchange is open at the given minute.
         """
-        calendar = get_calendar(self.exchange)
-        return calendar.is_open_on_minute(dt_minute)
+        return self.calendar.is_open_on_minute(dt_minute)
 
 
 cdef class Equity(Asset):

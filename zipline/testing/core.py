@@ -1594,6 +1594,37 @@ def prices_generating_returns(returns, starting_price):
     return rounded_prices
 
 
+def random_tick_prices(starting_price,
+                       count,
+                       tick_size=0.01,
+                       tick_range=(-5, 7),
+                       seed=42):
+    """
+    Construct a time series of prices that ticks by a random multiple of
+    ``tick_size`` every period.
+
+    Parameters
+    ----------
+    starting_price : float
+        The first price of the series.
+    count : int
+        Number of price observations to return.
+    tick_size : float
+        Minimum unit of price movement between observations.
+    tick_range : (int, int)
+        Pair of lower/upper bounds for number of ticks observed between
+        observations. Samples w
+    seed : int, optional
+        Seed to use for random number generation.
+    """
+    out = np.full(count, starting_price, dtype=float)
+    rng = np.random.RandomState(seed)
+    diff = rng.randint(tick_range[0], tick_range[1], size=len(out) - 1)
+    ticks = starting_price + diff.cumsum() * tick_size
+    out[1:] = ticks
+    return out
+
+
 def simulate_minutes_for_day(open_,
                              high,
                              low,

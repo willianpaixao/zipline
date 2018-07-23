@@ -21,6 +21,7 @@ from zipline.errors import (
     NonExistentAssetInTimeFrame,
     NonSliceableTerm,
     NonWindowSafeInput,
+    NonPipelineInputs,
     NotDType,
     NonPipelineInputs,
     TermInputsNotSpecified,
@@ -44,6 +45,7 @@ from zipline.utils.sharedoc import (
     PIPELINE_DOWNSAMPLING_FREQUENCY_DOC,
 )
 
+from .domain import infer_domain
 from .downsample_helpers import expect_downsample_frequency
 from .sentinels import NotSpecified
 
@@ -88,7 +90,7 @@ class Term(with_metaclass(ABCMeta, object)):
         Caching previously-constructed Terms is **sane** because terms and
         their inputs are both conceptually immutable.
         """
-        # Subclasses can set override these class-level attributes to provide
+        # Subclasses can override these class-level attributes to provide
         # default values.
         if domain is NotSpecified:
             domain = cls.domain
@@ -451,12 +453,14 @@ class ComputableTerm(Term):
     outputs = NotSpecified
     window_length = NotSpecified
     mask = NotSpecified
+    domain = NotSpecified
 
     def __new__(cls,
                 inputs=inputs,
                 outputs=outputs,
                 window_length=window_length,
                 mask=mask,
+                domain=domain,
                 *args, **kwargs):
 
         if inputs is NotSpecified:
@@ -471,10 +475,12 @@ class ComputableTerm(Term):
 
             # Make sure all our inputs are valid pipeline objects before trying
             # to infer a domain.
-            for input_ in inputs:
-                non_terms = [t for t in inputs if not isinstance(t, Term)]
-                if non_terms:
-                    raise NonPipelineInputs(cls.__name__, non_terms)
+            non_terms = [t for t in inputs if not isinstance(t, Term)]
+            if non_terms:
+                raise NonPipelineInputs(cls.__name__, non_terms)
+
+            if domain is NotSpecified:
+                domain = infer_domain(inputs)
 
         if outputs is NotSpecified:
             outputs = cls.outputs
@@ -495,6 +501,7 @@ class ComputableTerm(Term):
             outputs=outputs,
             mask=mask,
             window_length=window_length,
+            domain=domain,
             *args, **kwargs
         )
 
@@ -524,9 +531,11 @@ class ComputableTerm(Term):
     def _validate(self):
         super(ComputableTerm, self)._validate()
 
+        # Check inputs.
         if self.inputs is NotSpecified:
             raise TermInputsNotSpecified(termname=type(self).__name__)
 
+        # Check outputs.
         if self.outputs is NotSpecified:
             pass
         elif not self.outputs:

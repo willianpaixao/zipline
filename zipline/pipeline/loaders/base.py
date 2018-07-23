@@ -7,8 +7,7 @@ from interface import Interface
 class PipelineLoader(Interface):
     """Interface for PipelineLoaders.
     """
-    # TODO_SS: Add domain to this interface.
-    def load_adjusted_array(self, columns, dates, sids, mask):
+    def load_adjusted_array(self, domain, columns, dates, sids, mask):
         """
         Load data for ``columns`` as AdjustedArrays.
 

@@ -1447,6 +1447,7 @@ class AssetFinder(object):
             )
         else:
             buf = np.array([], dtype='f8')
+
         lifetimes = np.recarray(
             buf=buf,
             shape=(len(buf),),
@@ -1501,7 +1502,14 @@ class AssetFinder(object):
         numpy.putmask
         zipline.pipeline.engine.SimplePipelineEngine._compute_root_mask
         """
-        # normalize this to a cache-key
+        # TODO_SS: Should we just accept a single string here?
+        if isinstance(country_codes, string_types):
+            raise TypeError(
+                "Got string {!r} instead of an iterable of strings in "
+                "AssetFinder.lifetimes.".format(country_codes),
+            )
+
+        # normalize to a cache-key so that we can memoize results.
         country_codes = frozenset(country_codes)
 
         lifetimes = self._asset_lifetimes.get(country_codes)
