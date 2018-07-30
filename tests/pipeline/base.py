@@ -7,6 +7,7 @@ from pandas import DataFrame, Timestamp
 from six import iteritems
 
 from zipline.utils.compat import wraps
+from zipline.pipeline.domain import USEquities
 from zipline.pipeline.engine import SimplePipelineEngine
 from zipline.pipeline import ExecutionPlan
 from zipline.pipeline.term import AssetExists, InputDates
@@ -51,22 +52,21 @@ def with_defaults(**default_funcs):
 with_default_shape = with_defaults(shape=lambda self: self.default_shape)
 
 
-class BasePipelineTestCase(WithTradingSessions,
-                           WithAssetFinder,
-                           ZiplineTestCase):
+class BaseUSEquityPipelineTestCase(WithTradingSessions,
+                                   WithAssetFinder,
+                                   ZiplineTestCase):
     START_DATE = Timestamp('2014', tz='UTC')
     END_DATE = Timestamp('2014-12-31', tz='UTC')
     ASSET_FINDER_EQUITY_SIDS = list(range(20))
 
     @classmethod
     def init_class_fixtures(cls):
-        super(BasePipelineTestCase, cls).init_class_fixtures()
+        super(BaseUSEquityPipelineTestCase, cls).init_class_fixtures()
 
         cls.default_asset_exists_mask = cls.asset_finder.lifetimes(
             cls.nyse_sessions[-30:],
             include_start_date=False,
-            # TODO: update this when we add domains.
-            country_codes={'??', 'US'},
+            country_codes={'US'},
         )
 
     @property
@@ -97,8 +97,8 @@ class BasePipelineTestCase(WithTradingSessions,
         """
         engine = SimplePipelineEngine(
             lambda column: ExplodingObject(),
-            self.nyse_sessions,
             self.asset_finder,
+            default_domain=USEquities,
         )
         if mask is None:
             mask = self.default_asset_exists_mask
@@ -109,10 +109,11 @@ class BasePipelineTestCase(WithTradingSessions,
         initial_workspace.setdefault(InputDates(), dates)
 
         return engine.compute_chunk(
-            graph,
-            dates,
-            assets,
-            initial_workspace,
+            graph=graph,
+            domain=USEquities,
+            dates=dates,
+            assets=assets,
+            initial_workspace=initial_workspace,
         )
 
     def check_terms(self,

@@ -179,8 +179,7 @@ class InternationalEquityTestCase(WithInternationalPricingPipelineEngine,
 
     @parameter_space(domain=[CanadaEquities, USEquities, UKEquities])
     def test_generic_pipeline_with_explicit_domain(self, domain):
-        calendar = domain.get_calendar()
-
+        calendar = domain.calendar
         pipe = Pipeline({
             'open': EquityPricing.open.latest,
             'high': EquityPricing.high.latest,
@@ -261,10 +260,6 @@ class InternationalEquityTestCase(WithInternationalPricingPipelineEngine,
             sessions[1],
             sessions[-1],
         )
-
-    def test_complex_factor_domain_inference(self):
-
-        factor = 
 
     def check_expected_latest_value(self, calendar, col, date, asset, value):
         """Check the expected result of column.latest from a pipeline.

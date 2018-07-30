@@ -14,8 +14,11 @@ from numpy import array
 from pandas import DataFrame, MultiIndex
 from toolz import groupby
 
+from zipline.assets import AssetFinder
+
 from zipline.lib.adjusted_array import ensure_adjusted_array, ensure_ndarray
 from zipline.errors import NoFurtherDataError
+from zipline.utils.input_validation import expect_types
 from zipline.utils.numpy_utils import (
     as_column,
     repeat_first_axis,
@@ -23,7 +26,8 @@ from zipline.utils.numpy_utils import (
 )
 from zipline.utils.pandas_utils import explode
 
-from .sentinels import NotSpecified
+from .domain import Domain
+from .sentinels import NotSpecified, NotSpecifiedType
 from .term import AssetExists, InputDates, LoadableTerm
 
 from zipline.utils.date_utils import compute_date_range_chunks
@@ -192,6 +196,11 @@ class SimplePipelineEngine(PipelineEngine):
         '_populate_initial_workspace',
     )
 
+    @expect_types(
+        asset_finder=AssetFinder,
+        default_domain=(Domain, NotSpecifiedType),
+        __funcname='SimplePipelineEngine',
+    )
     def __init__(self,
                  get_loader,
                  asset_finder,
@@ -207,7 +216,7 @@ class SimplePipelineEngine(PipelineEngine):
         self._populate_initial_workspace = (
             populate_initial_workspace or default_populate_initial_workspace
         )
-        self._default_domain = NotSpecified
+        self._default_domain = default_domain
 
     def run_pipeline(self, pipeline, start_date, end_date):
         """
@@ -282,7 +291,7 @@ class SimplePipelineEngine(PipelineEngine):
             # TODO_SS: Better error message here.
             raise RuntimeError("Failed to infer domain for Pipeline.")
 
-        all_dates = domain.get_calendar().all_sessions
+        all_dates = domain.get_sessions()
 
         # TODO_SS: Once we have fully-general specialization, we should
         #          specialize everything in `to_execution_plan`.
@@ -361,25 +370,20 @@ class SimplePipelineEngine(PipelineEngine):
             that existed for at least one day between `start_date` and
             `end_date`.
         """
-        calendar = domain.get_calendar()
+        sessions = domain.get_sessions()
 
-        if not calendar.is_session(start_date):
+        if start_date not in sessions:
             raise ValueError(
                 "Pipeline start date ({}) is not a trading session for "
-                "calendar {!r} (implied by domain {}).".format(
-                    start_date, calendar.name, domain,
-                )
+                "domain {}.".format(start_date, domain)
             )
 
-        elif not calendar.is_session(end_date):
+        elif end_date not in sessions:
             raise ValueError(
-                "Pipeline end date ({}) is not a trading session for "
-                "calendar {!r} (implied by domain {})".format(
-                    end_date, calendar.name, domain,
-                )
+                "Pipeline end date {} is not a trading session for "
+                "domain {}.".format(end_date, domain)
             )
 
-        sessions = calendar.all_sessions
         start_idx, end_idx = sessions.slice_locs(start_date, end_date)
         if start_idx < extra_rows:
             raise NoFurtherDataError.from_lookback_window(

@@ -576,7 +576,7 @@ class EarningsEstimatesLoader(implements(PipelineLoader)):
             column.missing_value
         )
 
-    def load_adjusted_array(self, columns, dates, sids, mask):
+    def load_adjusted_array(self, domain, columns, dates, sids, mask):
         # Separate out getting the columns' datasets and the datasets'
         # num_announcements attributes to ensure that we're catching the right
         # AttributeError.

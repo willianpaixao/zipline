@@ -58,7 +58,7 @@ from zipline.utils.numpy_utils import (
 from zipline.utils.math_utils import nanmean, nanstd
 from zipline.utils.pandas_utils import new_pandas, skip_pipeline_new_pandas
 
-from .base import BasePipelineTestCase
+from .base import BaseUSEquityPipelineTestCase
 
 
 class F(Factor):
@@ -131,7 +131,7 @@ def scipy_winsorize_with_nan_handling(array, limits):
     return sorted_winsorized[unsorter]
 
 
-class FactorTestCase(BasePipelineTestCase):
+class FactorTestCase(BaseUSEquityPipelineTestCase):
 
     def init_instance_fixtures(self):
         super(FactorTestCase, self).init_instance_fixtures()

@@ -266,9 +266,12 @@ class Pipeline(object):
         """
         inferred = infer_domain(self.columns.values())
 
+        # inferred will be NotSpecified if we only have generic columns.
         if inferred is NotSpecified:
-            # TODO_SS: Whose job should it be to barf on a NotSpecified domain?
-            return self._domain
+            if self._domain is NotSpecified:
+                return default
+            else:
+                return self._domain
         elif self._domain is NotSpecified or self._domain == inferred:
             return inferred
 

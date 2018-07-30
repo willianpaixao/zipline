@@ -47,7 +47,7 @@ from zipline.utils.numpy_utils import (
     int64_dtype,
     object_dtype,
 )
-from .base import BasePipelineTestCase, with_default_shape
+from .base import BaseUSEquityPipelineTestCase, with_default_shape
 
 
 def rowwise_rank(array, mask=None):
@@ -114,7 +114,7 @@ class Mask(Filter):
     window_length = 0
 
 
-class FilterTestCase(BasePipelineTestCase):
+class FilterTestCase(BaseUSEquityPipelineTestCase):
 
     def init_instance_fixtures(self):
         super(FilterTestCase, self).init_instance_fixtures()

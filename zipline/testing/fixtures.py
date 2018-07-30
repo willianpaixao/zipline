@@ -24,6 +24,7 @@ from zipline.pipeline import SimplePipelineEngine
 from zipline.pipeline.data import USEquityPricing
 from zipline.pipeline.loaders import USEquityPricingLoader
 from zipline.pipeline.loaders.testing import make_seeded_random_loader
+from zipline.pipeline.sentinels import NotSpecified
 from zipline.protocol import BarData
 from zipline.utils.paths import ensure_directory
 from .core import (
@@ -1588,6 +1589,7 @@ class WithSeededRandomPipelineEngine(WithTradingSessions, WithAssetFinder):
     zipline.pipeline.engine.SimplePipelineEngine
     """
     SEEDED_RANDOM_PIPELINE_SEED = 42
+    # SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = NotSpecified
 
     @classmethod
     def init_class_fixtures(cls):
@@ -1600,7 +1602,6 @@ class WithSeededRandomPipelineEngine(WithTradingSessions, WithAssetFinder):
         )
         cls.seeded_random_engine = SimplePipelineEngine(
             get_loader=lambda column: loader,
-            calendar=cls.trading_days,
             asset_finder=cls.asset_finder,
         )
 

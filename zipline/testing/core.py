@@ -26,6 +26,7 @@ from sqlalchemy import create_engine
 from testfixtures import TempDirectory
 from toolz import concat, curry
 from trading_calendars import get_calendar
+from trading_calendars.always_open import AlwaysOpenCalendar
 
 from zipline.assets import AssetFinder, AssetDBWriter
 from zipline.assets.synthetic import make_simple_equity_info
@@ -45,7 +46,8 @@ from zipline.data.us_equity_pricing import (
 from zipline.finance.blotter import SimulationBlotter
 from zipline.finance.order import ORDER_STATUS
 from zipline.lib.labelarray import LabelArray
-from zipline.pipeline.data import USEquityPricing
+from zipline.pipeline.data import EquityPricing
+from zipline.pipeline.domain import ExplicitCalendarDomain
 from zipline.pipeline.engine import SimplePipelineEngine
 from zipline.pipeline.factors import CustomFactor
 from zipline.pipeline.loaders.testing import make_seeded_random_loader
@@ -1095,7 +1097,10 @@ def temp_pipeline_engine(calendar, sids, random_seed, symbols=None):
         yield SimplePipelineEngine(get_loader, calendar, finder)
 
 
-def parameter_space(__fail_fast=False, **params):
+_FAIL_FAST_DEFAULT = bool(os.environ.get('PARAMETER_SPACE_FAIL_FAST'))
+
+
+def parameter_space(__fail_fast=_FAIL_FAST_DEFAULT, **params):
     """
     Wrapper around subtest that allows passing keywords mapping names to
     iterables of values.
@@ -1560,7 +1565,7 @@ class AssetIDPlusDay(CustomFactor):
 
 class OpenPrice(CustomFactor):
     window_length = 1
-    inputs = [USEquityPricing.open]
+    inputs = [EquityPricing.open]
 
     def compute(self, today, assets, out, open):
         out[:] = open
@@ -1715,3 +1720,16 @@ def simulate_minutes_for_day(open_,
         'low': prices.min(),
         'volume': volume,
     })
+
+
+def create_24_7_calendar_domain(name,
+                                country_code,
+                                calendar_start,
+                                calendar_end):
+    """Create a new pipeline domain using a 24/7 calendar.
+
+    TODO_SS
+    """
+    return ExplicitCalendarDomain(
+        name, country_code, AlwaysOpenCalendar(calendar_start, calendar_end)
+    )
