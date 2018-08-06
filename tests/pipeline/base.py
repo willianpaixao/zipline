@@ -11,10 +11,7 @@ from zipline.pipeline.domain import USEquities
 from zipline.pipeline.engine import SimplePipelineEngine
 from zipline.pipeline import ExecutionPlan
 from zipline.pipeline.term import AssetExists, InputDates
-from zipline.testing import (
-    check_arrays,
-    ExplodingObject,
-)
+from zipline.testing import check_arrays
 from zipline.testing.fixtures import (
     WithAssetFinder,
     WithTradingSessions,
