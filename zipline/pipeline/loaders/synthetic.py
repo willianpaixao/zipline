@@ -85,7 +85,9 @@ class PrecomputedLoader(implements(PipelineLoader)):
         out = {}
         for col in columns:
             try:
-                loader = self._loaders[col]
+                loader = self._loaders.get(col)
+                if loader is None:
+                    loader = self._loaders[col.unspecialize()]
             except KeyError:
                 raise ValueError("Couldn't find loader for %s" % col)
             out.update(

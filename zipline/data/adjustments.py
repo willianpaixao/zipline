@@ -376,7 +376,7 @@ class SQLiteAdjustmentWriter(object):
         tz_naive_calendar = calendar.tz_localize(None)
         day_locs = tz_naive_calendar.get_indexer(ex_dates, method='bfill')
 
-        isnull = np.isnull
+        isnull = pd.isnull
 
         for i, amount in enumerate(amounts):
             sid = sids[i]

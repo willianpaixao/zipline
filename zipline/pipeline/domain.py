@@ -5,10 +5,12 @@ Domains
 TODO_SS
 """
 from interface import implements, Interface
+import pandas as pd
 
 from trading_calendars import get_calendar
 
 from zipline.country import CountryCode
+from zipline.utils.input_validation import expect_types
 from zipline.utils.memoize import lazyval
 
 from .sentinels import NotSpecified
@@ -17,12 +19,6 @@ from .sentinels import NotSpecified
 class IDomain(Interface):
     """Domain interface.
     """
-
-    @property
-    def name(self):
-        """User-facing name for this domain.
-        """
-
     @property
     def country_code(self):
         """Country code for assets on this domain.
@@ -35,7 +31,7 @@ class IDomain(Interface):
     #
     # Is there a strong reason to prefer just exposing the calendar
     # vs. exposing the sessions? If so, what do we do about the blaze tests?
-    def get_sessions(self):
+    def all_sessions(self):
         """Get all trading sessions for the calendar of this domain.
         """
 
@@ -45,23 +41,23 @@ Domain = implements(IDomain)
 
 # TODO: Better name for this?
 # TODO: Do we want/need memoization for this?
-class StandardDomain(Domain):
+class EquityCountryDomain(Domain):
     """TODO_SS
     """
-    def __init__(self, name, country_code, calendar_name):
-        self._name = name
+    @expect_types(
+        country_code=str,
+        calendar_name=str,
+        __funcname='SingleMarketDomain',
+    )
+    def __init__(self, country_code, calendar_name):
         self._country_code = country_code
         self._calendar_name = calendar_name
-
-    @property
-    def name(self):
-        return self._name
 
     @property
     def country_code(self):
         return self._country_code
 
-    def get_sessions(self):
+    def all_sessions(self):
         return self.calendar.all_sessions
 
     @lazyval
@@ -69,19 +65,17 @@ class StandardDomain(Domain):
         return get_calendar(self._calendar_name)
 
     def __repr__(self):
-        return "{}(country={!r}, calendar={!r})".format(
-            self.name,
-            self.country_code,
-            self._calendar_name,
+        return "EquityCountryDomain({!r}, {!r})".format(
+            self.country_code, self._calendar_name,
         )
 
 
 # TODO: Is this the casing convention we want for domains?
-USEquities = StandardDomain('USEquities', CountryCode.UNITED_STATES, 'NYSE')
-CanadaEquities = StandardDomain('CanadaEquities', CountryCode.CANADA, 'TSX')
+USEquities = EquityCountryDomain(CountryCode.UNITED_STATES, 'NYSE')
+CanadaEquities = EquityCountryDomain(CountryCode.CANADA, 'TSX')
 # XXX: The actual country code for this is GB. Should we use that for the name
 # here?
-UKEquities = StandardDomain('UKEquities', CountryCode.UNITED_KINGDOM, 'LSE')
+UKEquities = EquityCountryDomain(CountryCode.UNITED_KINGDOM, 'LSE')
 
 
 def infer_domain(terms):
@@ -131,47 +125,48 @@ class AmbiguousDomain(Exception):
     """
 
 
-class SessionDomain(Domain):
-    """TODO_SS
-    """
+class EquitySessionDomain(Domain):
+    """A domain built directly from an index of sessions.
 
-    def __init__(self, name, sessions, country_code):
-        self._name = name
+    Mostly useful for testing.
+
+    Parameters
+    ----------
+    sessions : pd.DatetimeIndex
+        Sessions to use as output labels for pipelines run on this domain.
+    country_code : str
+        ISO 3166 country code of equities to be used with this domain.
+    """
+    @expect_types(
+        sessions=pd.DatetimeIndex,
+        country_code=str,
+        __funcname='EquitySessionDomain',
+    )
+    def __init__(self, sessions, country_code):
         self._country_code = country_code
         self._sessions = sessions
 
     @property
-    def name(self):
-        return self._name
-
-    @property
     def country_code(self):
         return self._country_code
 
-    def get_sessions(self):
+    def all_sessions(self):
         return self._sessions
 
 
-class ExplicitCalendarDomain(Domain):
+# Map from calendar name to default domain for that calendar.
+_DEFAULT_ALGORITHM_DOMAINS = {
+    'NYSE': USEquities,
+    'TSX': CanadaEquities,
+    'LSE': UKEquities,
+}
+
+
+def default_pipeline_domain_for_algorithm(calendar):
     """
-    A domain that takes an explicit calendar instance at construction time
-    rather than a name. This allows for greater control of the start/end dates
-    of the calendar, which is sometimes useful for testing.
+    Get a default pipeline domain for algorithms running on ``calendar``.
 
-    TODO_SS:
+    This will be used to infer a domain for pipelines that only use generic
+    datasets when running in the context of a TradingAlgorithm.
     """
-    def __init__(self, name, country_code, calendar):
-        self._name = name
-        self._country_code = country_code
-        self._calendar = calendar
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def country_code(self):
-        return self._country_code
-
-    def get_sessions(self):
-        return self._calendar.sessions
+    return _DEFAULT_ALGORITHM_DOMAINS.get(calendar.name, NotSpecified)

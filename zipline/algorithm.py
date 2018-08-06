@@ -84,6 +84,7 @@ from zipline.assets import Asset, Equity, Future
 from zipline.gens.tradesimulation import AlgorithmSimulator
 from zipline.finance.metrics import MetricsTracker, load as load_metrics_set
 from zipline.pipeline import Pipeline
+from zipline.pipeline.domain import default_pipeline_domain_for_algorithm
 from zipline.pipeline.engine import (
     ExplodingPipelineEngine,
     SimplePipelineEngine,
@@ -414,6 +415,9 @@ class TradingAlgorithm(object):
             self.engine = SimplePipelineEngine(
                 get_loader,
                 self.asset_finder,
+                default_domain=default_pipeline_domain_for_algorithm(
+                    self.trading_calendar,
+                )
             )
         else:
             self.engine = ExplodingPipelineEngine()

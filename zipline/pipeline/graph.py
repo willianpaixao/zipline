@@ -3,10 +3,7 @@ Dependency-Graph representation of Pipeline API terms.
 """
 import uuid
 
-from networkx import (
-    DiGraph,
-    topological_sort,
-)
+import networkx as nx
 from six import iteritems, itervalues
 from zipline.utils.memoize import lazyval
 from zipline.pipeline.visualize import display_graph
@@ -48,13 +45,14 @@ class TermGraph(object):
     -------
     ordered()
         Return a topologically-sorted iterator over the terms in self.
+    execution_order(refcounts)
 
     See Also
     --------
     ExecutionPlan
     """
     def __init__(self, terms):
-        self.graph = DiGraph()
+        self.graph = nx.DiGraph()
 
         self._frozen = False
         parents = set()
@@ -114,14 +112,14 @@ class TermGraph(object):
         Return a topologically-sorted iterator over the terms in ``self`` which
         need to be computed.
         """
-        return iter(topological_sort(
+        return iter(nx.topological_sort(
             self.graph.subgraph(
                 {term for term, refcount in refcounts.items() if refcount > 0},
             ),
         ))
 
     def ordered(self):
-        return iter(topological_sort(self.graph))
+        return iter(nx.topological_sort(self.graph))
 
     @lazyval
     def loadable_terms(self):
@@ -181,7 +179,7 @@ class TermGraph(object):
             # workspace to conserve memory.
             if refcounts[parent] == 0:
                 garbage.add(parent)
-                self._decref_depencies_recursive(parent, refcounts, garbage)
+                self._decref_dependencies_recursive(parent, refcounts, garbage)
 
     def decref_dependencies(self, term, refcounts):
         """
@@ -223,11 +221,10 @@ class ExecutionPlan(TermGraph):
 
     Parameters
     ----------
+    domain : zipline.pipeline.domain.Domain
+        The domain of execution for which we need to build a plan.
     terms : dict
         A dict mapping names to final output terms.
-    all_dates : pd.DatetimeIndex
-        An index of all known trading days for which ``terms`` will be
-        computed.
     start_date : pd.Timestamp
         The first date for which output is requested for ``terms``.
     end_date : pd.Timestamp
@@ -235,31 +232,48 @@ class ExecutionPlan(TermGraph):
 
     Attributes
     ----------
+    domain
+    extra_rows
     outputs
     offset
-    extra_rows
 
     Methods
     -------
-    ordered()
+    ordered(self)
         Return a topologically-sorted iterator over the terms in self.
+    execution_order(self, refcounts)
+        Return a topologically-sorted iterator over the terms in self, skipping
+        entries with refcounts of zero.
     """
     def __init__(self,
+                 domain,
                  terms,
-                 all_dates,
                  start_date,
                  end_date,
                  min_extra_rows=0):
         super(ExecutionPlan, self).__init__(terms)
 
+        # Specialize loadable terms.
+        # NOTE: This isn't using self.loadable_terms because we don't want to
+        # trigger caching of the lazyval.
+        specializations = {
+            t: t.specialize(domain)
+            for t in self.graph if isinstance(t, LoadableTerm)
+        }
+        self.graph = nx.relabel_nodes(self.graph, specializations)
+        self.domain = domain
+
+        sessions = domain.all_sessions()
         for term in terms.values():
             self.set_extra_rows(
                 term,
-                all_dates,
+                sessions,
                 start_date,
                 end_date,
                 min_extra_rows=min_extra_rows,
             )
+
+        self._assert_all_loadable_terms_specialized_to(domain)
 
     def set_extra_rows(self,
                        term,
@@ -267,6 +281,9 @@ class ExecutionPlan(TermGraph):
                        start_date,
                        end_date,
                        min_extra_rows):
+        # Specialize any loadable terms before adding extra rows.
+        term = maybe_specialize(term, self.domain)
+
         # A term can require that additional extra rows beyond the minimum be
         # computed.  This is most often used with downsampled terms, which need
         # to ensure that the first date is a computation date.
@@ -355,16 +372,16 @@ class ExecutionPlan(TermGraph):
 
         See Also
         --------
-        zipline.pipeline.graph.TermGraph.offset
-        zipline.pipeline.engine.SimplePipelineEngine._inputs_for_term
-        zipline.pipeline.engine.SimplePipelineEngine._mask_and_dates_for_term
+        :meth:`zipline.pipeline.graph.ExecutionPlan.offset`
+        :meth:`zipline.pipeline.engine.ExecutionPlan.mask_and_dates_for_term`
+        :meth:`zipline.pipeline.engine.SimplePipelineEngine._inputs_for_term`
         """
         extra = self.extra_rows
         return {
             # Another way of thinking about this is:
             # How much bigger is the array for ``dep`` compared to ``term``?
             # How much of that difference did I ask for.
-            (term, dep): (extra[dep] - extra[term]) - requested_extra_rows
+            (term, maybe_specialize(dep, self.domain)): (extra[maybe_specialize(dep, self.domain)] - extra[term]) - requested_extra_rows  # noqa TODO_SS
             for term in self.graph
             for dep, requested_extra_rows in term.dependencies.items()
         }
@@ -400,8 +417,8 @@ class ExecutionPlan(TermGraph):
 
         See Also
         --------
-        zipline.pipeline.graph.TermGraph.offset
-        zipline.pipeline.term.Term.dependencies
+        :meth:`zipline.pipeline.graph.ExecutionPlan.offset`
+        :meth:`zipline.pipeline.term.Term.dependencies`
         """
         return {
             term: attrs['extra_rows']
@@ -451,3 +468,18 @@ class ExecutionPlan(TermGraph):
         )
 
         return workspace[mask][mask_offset:], all_dates[dates_offset:]
+
+    def _assert_all_loadable_terms_specialized_to(self, domain):
+        """Make sure that we've specialized all loadable terms in the graph.
+        """
+        for term in self.graph.node:
+            if isinstance(term, LoadableTerm):
+                assert term.domain is domain
+
+
+def maybe_specialize(term, domain):
+    """Specialize a term if it's loadable.
+    """
+    if isinstance(term, LoadableTerm):
+        return term.specialize(domain)
+    return term

@@ -22,6 +22,7 @@ from zipline.finance.asset_restrictions import NoRestrictions
 from zipline.utils.memoize import classlazyval
 from zipline.pipeline import SimplePipelineEngine
 from zipline.pipeline.data import USEquityPricing
+from zipline.pipeline.domain import USEquities
 from zipline.pipeline.loaders import USEquityPricingLoader
 from zipline.pipeline.loaders.testing import make_seeded_random_loader
 from zipline.pipeline.sentinels import NotSpecified
@@ -1517,8 +1518,8 @@ class WithAdjustmentReader(WithBcolzEquityDailyBarReader):
         cls.adjustment_reader = SQLiteAdjustmentReader(conn)
 
 
-class WithEquityPricingPipelineEngine(WithAdjustmentReader,
-                                      WithTradingSessions):
+class WithUSEquityPricingPipelineEngine(WithAdjustmentReader,
+                                        WithTradingSessions):
     """
     Mixin providing the following as a class-level fixtures.
         - cls.data_root_dir
@@ -1527,11 +1528,12 @@ class WithEquityPricingPipelineEngine(WithAdjustmentReader,
         - cls.adjustments_db_path
 
     """
+
     @classmethod
     def init_class_fixtures(cls):
         cls.data_root_dir = cls.enter_class_context(tmp_dir())
         cls.findata_dir = cls.data_root_dir.makedir('findata')
-        super(WithEquityPricingPipelineEngine, cls).init_class_fixtures()
+        super(WithUSEquityPricingPipelineEngine, cls).init_class_fixtures()
 
         loader = USEquityPricingLoader(
             cls.bcolz_equity_daily_bar_reader,
@@ -1546,8 +1548,8 @@ class WithEquityPricingPipelineEngine(WithAdjustmentReader,
 
         cls.pipeline_engine = SimplePipelineEngine(
             get_loader=get_loader,
-            calendar=cls.nyse_sessions,
             asset_finder=cls.asset_finder,
+            default_domain=USEquities,
         )
 
     @classmethod
@@ -1589,7 +1591,7 @@ class WithSeededRandomPipelineEngine(WithTradingSessions, WithAssetFinder):
     zipline.pipeline.engine.SimplePipelineEngine
     """
     SEEDED_RANDOM_PIPELINE_SEED = 42
-    # SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = NotSpecified
+    SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = NotSpecified
 
     @classmethod
     def init_class_fixtures(cls):
@@ -1603,6 +1605,7 @@ class WithSeededRandomPipelineEngine(WithTradingSessions, WithAssetFinder):
         cls.seeded_random_engine = SimplePipelineEngine(
             get_loader=lambda column: loader,
             asset_finder=cls.asset_finder,
+            default_domain=cls.SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN,
         )
 
     def raw_expected_values(self, column, start_date, end_date):

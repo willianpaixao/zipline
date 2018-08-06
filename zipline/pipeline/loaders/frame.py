@@ -150,13 +150,13 @@ class DataFrameLoader(implements(PipelineLoader)):
         """
         Load data from our stored baseline.
         """
-        column = self.column
         if len(columns) != 1:
             raise ValueError(
                 "Can't load multiple columns with DataFrameLoader"
             )
-        elif columns[0] != column:
-            raise ValueError("Can't load unknown column %s" % columns[0])
+
+        column = columns[0]
+        self._validate_input_column(column)
 
         date_indexer = self.dates.get_indexer(dates)
         assets_indexer = self.assets.get_indexer(sids)
@@ -179,3 +179,9 @@ class DataFrameLoader(implements(PipelineLoader)):
                 missing_value=column.missing_value,
             ),
         }
+
+    def _validate_input_column(self, column):
+        """Make sure a passed column is our column.
+        """
+        if column != self.column and column.unspecialize() != self.column:
+            raise ValueError("Can't load unknown column %s" % column)

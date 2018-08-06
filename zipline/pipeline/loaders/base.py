@@ -1,7 +1,7 @@
 """
 Base class for Pipeline API data loaders.
 """
-from interface import Interface
+from interface import default, Interface
 
 
 class PipelineLoader(Interface):
@@ -33,3 +33,20 @@ class PipelineLoader(Interface):
             Map from column to an AdjustedArray representing a point-in-time
             rolling view over the requested dates for the requested sids.
         """
+
+    @default
+    def validate_domain(self, domain):
+        """
+        Verify that a domain is supported before attempting to load it.
+
+        This can be implemented by a loader to raise a useful error before
+        performing any potentially-expensive work.
+
+        The default implementation is a no-op.
+
+        Parameters
+        ----------
+        domain : zipline.pipeline.domain.Domain
+            The domain on which a pipeline is about to be run.
+        """
+        pass

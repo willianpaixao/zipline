@@ -66,7 +66,7 @@ class BaseUSEquityPipelineTestCase(WithTradingSessions,
         cls.default_asset_exists_mask = cls.asset_finder.lifetimes(
             cls.nyse_sessions[-30:],
             include_start_date=False,
-            country_codes={'US'},
+            country_codes={cls.ASSET_FINDER_COUNTRY_CODE},
         )
 
     @property
@@ -81,7 +81,7 @@ class BaseUSEquityPipelineTestCase(WithTradingSessions,
 
         Parameters
         ----------
-        graph : zipline.pipeline.graph.TermGraph
+        graph : zipline.pipeline.graph.ExecutionPlan
             Graph to run.
         initial_workspace : dict
             Initial workspace to forward to SimplePipelineEngine.compute_chunk.
@@ -95,24 +95,26 @@ class BaseUSEquityPipelineTestCase(WithTradingSessions,
         results : dict
             Mapping from termname -> computed result.
         """
+        def get_loader(c):
+            raise AssertionError("run_graph() should not require any loaders!")
+
         engine = SimplePipelineEngine(
-            lambda column: ExplodingObject(),
+            get_loader,
             self.asset_finder,
             default_domain=USEquities,
         )
         if mask is None:
             mask = self.default_asset_exists_mask
 
-        dates, assets, mask_values = explode(mask)
+        dates, sids, mask_values = explode(mask)
 
         initial_workspace.setdefault(AssetExists(), mask_values)
         initial_workspace.setdefault(InputDates(), dates)
 
         return engine.compute_chunk(
             graph=graph,
-            domain=USEquities,
             dates=dates,
-            assets=assets,
+            sids=sids,
             initial_workspace=initial_workspace,
         )
 
@@ -128,8 +130,8 @@ class BaseUSEquityPipelineTestCase(WithTradingSessions,
         """
         start_date, end_date = mask.index[[0, -1]]
         graph = ExecutionPlan(
-            terms,
-            all_dates=self.nyse_sessions,
+            domain=USEquities,
+            terms=terms,
             start_date=start_date,
             end_date=end_date,
         )

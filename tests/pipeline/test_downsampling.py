@@ -15,6 +15,7 @@ from zipline.pipeline import (
     SimplePipelineEngine,
 )
 from zipline.pipeline.data.testing import TestingDataSet
+from zipline.pipeline.domain import USEquities, EquitySessionDomain
 from zipline.pipeline.factors import SimpleMovingAverage
 from zipline.pipeline.filters.smoothing import All
 from zipline.testing import ZiplineTestCase, parameter_space, ExplodingObject
@@ -585,6 +586,7 @@ class ComputeExtraRowsTestCase(WithTradingSessions, ZiplineTestCase):
             )
 
 
+# TODO_SS: Tests for downsampling on different domains.
 class DownsampledPipelineTestCase(WithSeededRandomPipelineEngine,
                                   ZiplineTestCase):
 
@@ -595,6 +597,8 @@ class DownsampledPipelineTestCase(WithSeededRandomPipelineEngine,
     END_DATE = pd.Timestamp('2015-01-06', tz='UTC')
 
     ASSET_FINDER_EQUITY_SIDS = tuple(range(10))
+    ASSET_FINDER_COUNTRY_CODE = 'US'
+    SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = USEquities
 
     def check_downsampled_term(self, term):
 
@@ -726,6 +730,8 @@ class TestDownsampledRowwiseOperation(WithAssetFinder, ZiplineTestCase):
 
     dates = pd.date_range(START_DATE, END_DATE)
 
+    ASSET_FINDER_COUNTRY_CODE = '??'
+
     class SidFactor(CustomFactor):
         inputs = ()
         window_length = 1
@@ -740,8 +746,8 @@ class TestDownsampledRowwiseOperation(WithAssetFinder, ZiplineTestCase):
         super(TestDownsampledRowwiseOperation, cls).init_class_fixtures()
         cls.pipeline_engine = SimplePipelineEngine(
             get_loader=lambda c: ExplodingObject(),
-            calendar=cls.dates,
             asset_finder=cls.asset_finder,
+            default_domain=EquitySessionDomain(cls.dates, country_code='??'),
         )
 
     @classmethod

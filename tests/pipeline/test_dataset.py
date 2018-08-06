@@ -19,9 +19,8 @@ class DataSetTestCase(zf.ZiplineTestCase):
         # Specializations should be memoized.
         self.assertIs(specialized, MyDataSet.specialize(USEquities))
 
-        # Specializations should have the same name, but prefixed with the
-        # country code of the new domain.
-        assert_equal(specialized.__name__, "MyDataSet_US")
+        # Specializations should have the same name.
+        assert_equal(specialized.__name__, "MyDataSet")
         self.assertIs(specialized.domain, USEquities)
 
         for attr in ('col1', 'col2', 'col3'):
@@ -45,3 +44,17 @@ class DataSetTestCase(zf.ZiplineTestCase):
             assert_equal(original.name, new.name)
             assert_equal(original.dtype, new.dtype)
             assert_equal(original.missing_value, new.missing_value)
+
+    def test_unspecialize(self):
+
+        class MyDataSet(DataSet):
+            col1 = Column(dtype=float)
+            col2 = Column(dtype=int, missing_value=100)
+            col3 = Column(dtype=object, missing_value="")
+
+        specialized = MyDataSet.specialize(USEquities)
+        unspecialized = specialized.unspecialize()
+        specialized_again = unspecialized.specialize(USEquities)
+
+        self.assertIs(unspecialized, MyDataSet)
+        self.assertIs(specialized, specialized_again)

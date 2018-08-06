@@ -23,7 +23,7 @@ from zipline.assets.synthetic import make_simple_equity_info
 from zipline.errors import UnsupportedPipelineOutput
 from zipline.pipeline import Pipeline, CustomFactor
 from zipline.pipeline.data import DataSet, BoundColumn, Column
-from zipline.pipeline.domain import SessionDomain
+from zipline.pipeline.domain import EquitySessionDomain
 from zipline.pipeline.engine import SimplePipelineEngine
 from zipline.pipeline.loaders.blaze import (
     from_blaze,
@@ -132,8 +132,7 @@ class BlazeToPipelineTestCase(WithAssetFinder, ZiplineTestCase):
         }""")
 
     def create_domain(self, sessions):
-        return SessionDomain(
-            'TempDomain',
+        return EquitySessionDomain(
             sessions,
             country_code=self.ASSET_FINDER_COUNTRY_CODE,
         )
@@ -873,6 +872,8 @@ class BlazeToPipelineTestCase(WithAssetFinder, ZiplineTestCase):
                                   Equity(66 [B])          3    3.0
                                   Equity(67 [C])          4    4.0
         """
+        dates = self.dates
+
         df = self.df.copy()
         df['timestamp'] = (
             pd.DatetimeIndex(df['timestamp'], tz='EST') +
@@ -887,11 +888,11 @@ class BlazeToPipelineTestCase(WithAssetFinder, ZiplineTestCase):
             no_deltas_rule='ignore',
             no_checkpoints_rule='ignore',
             missing_values=self.missing_values,
+            domain=self.create_domain(self.dates),
         )
         p = Pipeline()
         p.add(ds.value.latest, 'value')
         p.add(ds.int_value.latest, 'int_value')
-        dates = self.dates
 
         result = SimplePipelineEngine(
             loader, self.asset_finder,
@@ -1316,6 +1317,7 @@ class BlazeToPipelineTestCase(WithAssetFinder, ZiplineTestCase):
             no_deltas_rule='raise',
             no_checkpoints_rule='ignore',
             missing_values=self.missing_values,
+            domain=self.create_domain(calendar),
         )
         p = Pipeline()
 

@@ -29,6 +29,7 @@ import pandas as pd
 from zipline.errors import BadPercentileBounds
 from zipline.pipeline import Filter, Factor, Pipeline
 from zipline.pipeline.classifiers import Classifier
+from zipline.pipeline.domain import USEquities
 from zipline.pipeline.factors import CustomFactor
 from zipline.pipeline.filters import (
     All,
@@ -1028,8 +1029,9 @@ class SidFactor(CustomFactor):
 
 class SpecificAssetsTestCase(WithSeededRandomPipelineEngine,
                              ZiplineTestCase):
-
     ASSET_FINDER_EQUITY_SIDS = tuple(range(10))
+    ASSET_FINDER_COUNTRY_CODE = 'US'
+    SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = USEquities
 
     def _check_filters(self, evens, odds, first_five, last_three):
         pipe = Pipeline(

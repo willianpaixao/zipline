@@ -42,7 +42,7 @@ class EquityPricingLoader(implements(PipelineLoader)):
         # be known at the start of each date.  We assume that the latest data
         # known on day N is the data from day (N - 1), so we shift all query
         # dates back by a day.
-        sessions = domain.get_sessions()
+        sessions = domain.all_sessions()
         start_date, end_date = shift_dates(
             sessions, dates[0], dates[-1], shift=1,
         )

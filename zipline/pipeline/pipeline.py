@@ -160,8 +160,8 @@ class Pipeline(object):
         self._screen = screen
 
     def to_execution_plan(self,
+                          domain,
                           default_screen,
-                          all_dates,
                           start_date,
                           end_date):
         """
@@ -169,6 +169,8 @@ class Pipeline(object):
 
         Parameters
         ----------
+        domain : zipline.pipeline.domain.Domain
+            Domain on which the pipeline will be executed.
         default_screen : zipline.pipeline.term.Term
             Term to use as a screen if self.screen is None.
         all_dates : pd.DatetimeIndex
@@ -185,11 +187,17 @@ class Pipeline(object):
             Graph encoding term dependencies, including metadata about extra
             row requirements.
         """
+        if self._domain is not NotSpecified and domain is not self._domain:
+            raise AssertionError(
+                "Attempted to compile Pipeline with domain {} to execution "
+                "plan with different domain {}.".format(self._domain, domain)
+            )
+
         return ExecutionPlan(
-            self._prepare_graph_terms(default_screen),
-            all_dates,
-            start_date,
-            end_date,
+            domain=domain,
+            terms=self._prepare_graph_terms(default_screen),
+            start_date=start_date,
+            end_date=end_date,
         )
 
     def to_simple_graph(self, default_screen):

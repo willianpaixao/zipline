@@ -26,7 +26,6 @@ from sqlalchemy import create_engine
 from testfixtures import TempDirectory
 from toolz import concat, curry
 from trading_calendars import get_calendar
-from trading_calendars.always_open import AlwaysOpenCalendar
 
 from zipline.assets import AssetFinder, AssetDBWriter
 from zipline.assets.synthetic import make_simple_equity_info
@@ -47,7 +46,7 @@ from zipline.finance.blotter import SimulationBlotter
 from zipline.finance.order import ORDER_STATUS
 from zipline.lib.labelarray import LabelArray
 from zipline.pipeline.data import EquityPricing
-from zipline.pipeline.domain import ExplicitCalendarDomain
+from zipline.pipeline.domain import EquitySessionDomain
 from zipline.pipeline.engine import SimplePipelineEngine
 from zipline.pipeline.factors import CustomFactor
 from zipline.pipeline.loaders.testing import make_seeded_random_loader
@@ -1722,14 +1721,7 @@ def simulate_minutes_for_day(open_,
     })
 
 
-def create_24_7_calendar_domain(name,
-                                country_code,
-                                calendar_start,
-                                calendar_end):
-    """Create a new pipeline domain using a 24/7 calendar.
-
-    TODO_SS
+def create_simple_domain(start, end, country_code):
+    """Create a new pipeline domain with a simple date_range index.
     """
-    return ExplicitCalendarDomain(
-        name, country_code, AlwaysOpenCalendar(calendar_start, calendar_end)
-    )
+    return EquitySessionDomain(pd.date_range(start, end), country_code)

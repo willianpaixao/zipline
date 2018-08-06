@@ -9,6 +9,7 @@ from abc import (
 from six import (
     iteritems,
     with_metaclass,
+    viewkeys,
 )
 from numpy import array
 from pandas import DataFrame, MultiIndex
@@ -218,6 +219,7 @@ class SimplePipelineEngine(PipelineEngine):
         )
         self._default_domain = default_domain
 
+    # TODO_SS: Update this docstring.
     def run_pipeline(self, pipeline, start_date, end_date):
         """
         Compute a pipeline.
@@ -286,17 +288,10 @@ class SimplePipelineEngine(PipelineEngine):
                 "start_date=%s, end_date=%s" % (start_date, end_date)
             )
 
-        domain = pipeline.domain(self._default_domain)
-        if domain is NotSpecified:
-            # TODO_SS: Better error message here.
-            raise RuntimeError("Failed to infer domain for Pipeline.")
+        domain = self._resolve_domain(pipeline)
 
-        all_dates = domain.get_sessions()
-
-        # TODO_SS: Once we have fully-general specialization, we should
-        #          specialize everything in `to_execution_plan`.
         graph = pipeline.to_execution_plan(
-            self._root_mask_term, all_dates, start_date, end_date,
+            domain, self._root_mask_term, start_date, end_date,
         )
         extra_rows = graph.extra_rows[self._root_mask_term]
         root_mask = self._compute_root_mask(
@@ -314,9 +309,8 @@ class SimplePipelineEngine(PipelineEngine):
             dates,
             assets,
         )
-        results = self.compute_chunk(
-            graph, domain, dates, assets, initial_workspace,
-        )
+
+        results = self.compute_chunk(graph, dates, assets, initial_workspace)
 
         return self._to_narrow(
             graph.outputs,
@@ -328,8 +322,9 @@ class SimplePipelineEngine(PipelineEngine):
 
     @copydoc(PipelineEngine.run_chunked_pipeline)
     def run_chunked_pipeline(self, pipeline, start_date, end_date, chunksize):
+        domain = self._resolve_domain(pipeline)
         ranges = compute_date_range_chunks(
-            self._calendar,
+            domain.all_sessions(),
             start_date,
             end_date,
             chunksize,
@@ -370,7 +365,7 @@ class SimplePipelineEngine(PipelineEngine):
             that existed for at least one day between `start_date` and
             `end_date`.
         """
-        sessions = domain.get_sessions()
+        sessions = domain.all_sessions()
 
         if start_date not in sessions:
             raise ValueError(
@@ -411,14 +406,16 @@ class SimplePipelineEngine(PipelineEngine):
         # window through the end of the requested dates.
         existed = lifetimes.any()
         ret = lifetimes.loc[:, existed]
-        shape = ret.shape
+        num_assets = ret.shape[1]
 
-        if shape[0] * shape[1] == 0:
+        if num_assets == 0:
             raise ValueError(
-                "Found only empty asset-days between {} and {}.\n"
-                "This probably means that either your asset db is out of date"
-                " or that you're trying to run a Pipeline during a period with"
-                " no market days.".format(start_date, end_date),
+                "Failed to find any assets with country_code {!r} that traded "
+                "between {} and {}.\n"
+                "This probably means that your asset db is old or that it has "
+                "incorrect country/exchange metadata.".format(
+                    domain.country_code, start_date, end_date,
+                )
             )
 
         return ret
@@ -434,42 +431,29 @@ class SimplePipelineEngine(PipelineEngine):
         """
         offsets = graph.offset
         out = []
-        # HACK: Specialize LoadableTerms to the current domain of execution.
-        #
-        #       We do this to ensure that pipeline loaders only ever get passed
-        #       specialized terms, but we don't yet support specialization for
-        #       an entire pipeline graph, so we only specialize loadable terms.
-        #
-        #       A (much) cleaner solution would either be to not specialize
-        #       terms at all (and require loaders to produce different values
-        #       based on the domain) or to implement specialize() on all terms
-        #       and specialize the entire term graph before doing any work.
-        #
-        # TODO_SS: This is too ugly to live.
-        unspecialized = term.inputs
-        specialized = [
-            maybe_specialize(i, domain) for i in term.inputs
-        ]
+
+        # TODO_SS: Is there a way to push this requirement into the graph?
+        specialized = [maybe_specialize(t, domain) for t in term.inputs]
 
         if term.windowed:
             # If term is windowed, then all input data should be instances of
             # AdjustedArray.
-            for u, s in zip(unspecialized, specialized):
+            for input_ in specialized:
                 adjusted_array = ensure_adjusted_array(
-                    workspace[s], s.missing_value,
+                    workspace[input_], input_.missing_value,
                 )
                 out.append(
                     adjusted_array.traverse(
                         window_length=term.window_length,
-                        offset=offsets[term, u],
+                        offset=offsets[term, input_],
                     )
                 )
         else:
             # If term is not windowed, input_data may be an AdjustedArray or
             # np.ndarray. Coerce the former to the latter.
-            for u, s in zip(unspecialized, specialized):
-                input_data = ensure_ndarray(workspace[s])
-                offset = offsets[term, u]
+            for input_ in specialized:
+                input_data = ensure_ndarray(workspace[input_])
+                offset = offsets[term, input_]
                 # OPTIMIZATION: Don't make a copy by doing input_data[0:] if
                 # offset is zero.
                 if offset:
@@ -477,20 +461,17 @@ class SimplePipelineEngine(PipelineEngine):
                 out.append(input_data)
         return out
 
-    def get_loader(self, term):
-        return self._get_loader(term)
-
-    def compute_chunk(self, graph, domain, dates, assets, initial_workspace):
+    def compute_chunk(self, graph, dates, sids, initial_workspace):
         """
         Compute the Pipeline terms in the graph for the requested start and end
         dates.
 
+        This is where we do the actual work of running a pipeline.
+
         Parameters
         ----------
-        graph : zipline.pipeline.graph.TermGraph
+        graph : zipline.pipeline.graph.ExecutionPlan
             Dependency graph of the terms to be executed.
-        domain : zipline.pipeline.domain.Domain
-            Domain on which we're computing the pipeline.
         dates : pd.DatetimeIndex
             Row labels for our root mask.
         assets : pd.Int64Index
@@ -507,38 +488,44 @@ class SimplePipelineEngine(PipelineEngine):
             Dictionary mapping requested results to outputs.
         """
         self._validate_compute_chunk_params(
-            graph, domain, dates, assets, initial_workspace,
+            graph, dates, sids, initial_workspace,
         )
-        get_loader = self.get_loader
+        get_loader = self._get_loader
 
         # Copy the supplied initial workspace so we don't mutate it in place.
         workspace = initial_workspace.copy()
         refcounts = graph.initial_refcounts(workspace)
         execution_order = graph.execution_order(refcounts)
+        domain = graph.domain
 
-        loadable_terms = graph.loadable_terms
-
+        # Many loaders can fetch data more efficiently if we ask them to
+        # retrieve all their inputs at once. For example, a loader backed by a
+        # SQL database can fetch multiple columns from the database in a single
+        # query.
+        #
+        # To enable these loaders to fetch their data efficiently, we group
+        # together requests for LoadableTerms if they are provided by the same
+        # loader and they require the same number of extra rows.
+        #
+        # The extra rows condition is a simplification: we don't currently have
+        # a mechanism for asking a loader to fetch different windows of data
+        # for different terms, so we only batch requests together when they're
+        # going to produce data for the same set of dates. That may change in
+        # the future if we find a loader that can still benefit significantly
+        # from batching unequal-length requests.
         def loader_group_key(term):
-            """
-            Function used to decide which terms should be batched in
-            load_adjusted_array calls.
-            """
-            # Group terms together if they have the same loader and require the
-            # same number of extra rows.
-            #
-            # TODO_SS: This would be much cleaner if we specialized at the
-            # graph layer instead of piecemeal all over the engine.
-            loader = get_loader(term.specialize(domain))
+            loader = get_loader(term)
             extra_rows = graph.extra_rows[term]
             return loader, extra_rows
 
+        # Only produce loader groups for the terms we expect to load.  This
+        # ensures that we can run pipelines for graphs where we don't have a
+        # loader registered for an atomic term if all the dependencies of that
+        # term were supplied in the initial workspace.
+        will_be_loaded = graph.loadable_terms - viewkeys(workspace)
         loader_groups = groupby(
             loader_group_key,
-            # Only produce loader groups for the terms we expect to load.  This
-            # ensures that we can run pipelines for graphs where we don't have
-            # a loader registered for an atomic term if all the dependencies of
-            # that term were supplied in the initial workspace.
-            (t for t in execution_order if t in loadable_terms),
+            (t for t in execution_order if t in will_be_loaded),
         )
 
         for term in graph.execution_order(refcounts):
@@ -559,18 +546,13 @@ class SimplePipelineEngine(PipelineEngine):
             )
 
             if isinstance(term, LoadableTerm):
-                to_load = specialize_all(sorted(
+                loader = get_loader(term)
+                to_load = sorted(
                     loader_groups[loader_group_key(term)],
                     key=lambda t: t.dataset
-                ), domain)
-                # TODO_SS: This is too ugly to live.
-                loader = get_loader(term.specialize(domain))
+                )
                 loaded = loader.load_adjusted_array(
-                    domain,
-                    to_load,
-                    mask_dates,
-                    assets,
-                    mask,
+                    domain, to_load, mask_dates, sids, mask,
                 )
                 assert set(loaded) == set(to_load), (
                     'loader did not return an AdjustedArray for each column\n'
@@ -582,7 +564,7 @@ class SimplePipelineEngine(PipelineEngine):
                 workspace[term] = term._compute(
                     self._inputs_for_term(term, workspace, graph, domain),
                     mask_dates,
-                    assets,
+                    sids,
                     mask,
                 )
                 if term.ndim == 2:
@@ -593,9 +575,9 @@ class SimplePipelineEngine(PipelineEngine):
                 # Decref dependencies of ``term``, and clear any terms whose
                 # refcounts hit 0.
                 for garbage_term in graph.decref_dependencies(term, refcounts):
-                    # TODO_SS: Too ugly to live.
-                    del workspace[maybe_specialize(garbage_term, domain)]
+                    del workspace[garbage_term]
 
+        # At this point, all the output terms are in the workspace.
         out = {}
         graph_extra_rows = graph.extra_rows
         for name, term in iteritems(graph.outputs):
@@ -671,9 +653,8 @@ class SimplePipelineEngine(PipelineEngine):
 
     def _validate_compute_chunk_params(self,
                                        graph,
-                                       domain,
                                        dates,
-                                       assets,
+                                       sids,
                                        initial_workspace):
         """
         Verify that the values passed to compute_chunk are well-formed.
@@ -693,7 +674,7 @@ class SimplePipelineEngine(PipelineEngine):
             )
 
         shape = initial_workspace[root].shape
-        implied_shape = len(dates), len(assets)
+        implied_shape = len(dates), len(sids)
         if shape != implied_shape:
             raise AssertionError(
                 "root_mask shape is {shape}, but received dates/assets "
@@ -708,21 +689,28 @@ class SimplePipelineEngine(PipelineEngine):
                term is self._root_mask_dates_term:
                 continue
             if term.domain is NotSpecified:
-                raise RuntimeError(
-                    "Workspace terms must be specialized to a domain, "
-                    "but got generic term {}".format(term)
-                )
-            elif term.domain != domain:
+                # TODO_SS: Is this enough for safety?
+                if isinstance(term, LoadableTerm):
+                    raise RuntimeError(
+                        "Loadable workspace terms must be specialized to a "
+                        "domain, but got generic term {}".format(term)
+                    )
+            elif term.domain != graph.domain:
                 raise RuntimeError(
                     "Initial workspace term {} has domain {}. "
                     "Does not match pipeline domain {}".format(
-                        term, term.domain, domain,
+                        term, term.domain, graph.domain,
                     )
                 )
 
-
-def specialize_all(terms, domain):
-    return [t.specialize(domain) for t in terms]
+    def _resolve_domain(self, pipeline):
+        """Resolve a concrete domain for ``pipeline``.
+        """
+        domain = pipeline.domain(default=self._default_domain)
+        if domain is NotSpecified:
+            # TODO_SS: Better error message here.
+            raise RuntimeError("Failed to infer domain for Pipeline.")
+        return domain
 
 
 def maybe_specialize(term, domain):

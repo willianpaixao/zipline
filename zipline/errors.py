@@ -842,22 +842,3 @@ class IncompatibleTerms(ZiplineError):
         "{term_1} and {term_2} must have the same mask in order to compute "
         "correlations and regressions asset-wise."
     )
-
-
-class NonPipelineInputs(ZiplineError):
-    """Raised when a non-pipeline object is passed as input to a ComputableTerm
-    """
-    def __init__(self, term, inputs):
-        self.term = term
-        self.inputs
-
-    def __str__(self):
-        return (
-            "Unexpected inputs types in {}. "
-            "Inputs to Pipeline expressions must be Filters, Factors, "
-            "Classifiers, or BoundColumns.\n"
-            "Got the following type(s) instead: {}".format(
-                type(self.term).__name__,
-                sorted(set(map(type, self.inputs)), key=lambda t: t.__name__),
-            )
-        )

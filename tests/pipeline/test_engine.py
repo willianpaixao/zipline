@@ -42,8 +42,11 @@ from zipline.errors import NoFurtherDataError
 from zipline.lib.adjustment import MULTIPLY
 from zipline.lib.labelarray import LabelArray
 from zipline.pipeline import CustomFactor, Pipeline
-from zipline.pipeline.data import Column, DataSet, EquityPricing
+from zipline.pipeline.data import (
+    Column, DataSet, EquityPricing, USEquityPricing,
+)
 from zipline.pipeline.data.testing import TestingDataSet
+from zipline.pipeline.domain import USEquities, EquitySessionDomain
 from zipline.pipeline.engine import SimplePipelineEngine
 from zipline.pipeline.factors import (
     AverageDollarVolume,
@@ -77,7 +80,7 @@ from zipline.testing import (
     product_upper_triangle,
 )
 import zipline.testing.fixtures as zf
-from zipline.testing.core import create_24_7_calendar_domain
+from zipline.testing.core import create_simple_domain
 from zipline.testing.predicates import assert_equal
 from zipline.utils.memoize import lazyval
 from zipline.utils.numpy_utils import bool_dtype, datetime64ns_dtype
@@ -169,15 +172,15 @@ class WithConstantInputs(zf.WithAssetFinder):
     asset_ids = ASSET_FINDER_EQUITY_SIDS = 1, 2, 3, 4
     START_DATE = Timestamp('2014-01-01', tz='utc')
     END_DATE = Timestamp('2014-03-01', tz='utc')
+    ASSET_FINDER_COUNTRY_CODE = 'US'
 
     @classmethod
     def init_class_fixtures(cls):
         super(WithConstantInputs, cls).init_class_fixtures()
-        cls.domain = create_24_7_calendar_domain(
-            'TestDomain',
+        cls.domain = create_simple_domain(
+            start=cls.START_DATE,
+            end=cls.END_DATE,
             country_code=cls.ASSET_FINDER_COUNTRY_CODE,
-            calendar_start=cls.START_DATE,
-            calendar_end=cls.END_DATE,
         )
         cls.constants = {
             # Every day, assume every stock starts at 2, goes down to 1,
@@ -796,6 +799,7 @@ class FrameInputTestCase(zf.WithAssetFinder,
     asset_ids = ASSET_FINDER_EQUITY_SIDS = 1, 2, 3
     start = START_DATE = Timestamp('2015-01-01', tz='utc')
     end = END_DATE = Timestamp('2015-01-31', tz='utc')
+    ASSET_FINDER_COUNTRY_CODE = 'US'
 
     @classmethod
     def init_class_fixtures(cls):
@@ -807,6 +811,7 @@ class FrameInputTestCase(zf.WithAssetFinder,
             tz='UTC',
         )
         cls.assets = cls.asset_finder.retrieve_all(cls.asset_ids)
+        cls.domain = USEquities
 
     @lazyval
     def base_mask(self):
@@ -862,10 +867,13 @@ class FrameInputTestCase(zf.WithAssetFinder,
 
         high_loader = DataFrameLoader(high, high_base, adjustments)
 
-        engine = SimplePipelineEngine(
-            {low: low_loader, high: high_loader}.__getitem__,
-            self.asset_finder,
-        )
+        # Dispatch uses the concrete specializations, not generic columns.
+        get_loader = {
+            USEquityPricing.low: low_loader,
+            USEquityPricing.high: high_loader
+        }.__getitem__
+
+        engine = SimplePipelineEngine(get_loader, self.asset_finder)
 
         for window_length in range(1, 4):
             low_mavg = SimpleMovingAverage(
@@ -880,7 +888,8 @@ class FrameInputTestCase(zf.WithAssetFinder,
             for start, stop in bounds:
                 results = engine.run_pipeline(
                     Pipeline(
-                        columns={'low': low_mavg, 'high': high_mavg}
+                        columns={'low': low_mavg, 'high': high_mavg},
+                        domain=self.domain,
                     ),
                     dates[start],
                     dates[stop],
@@ -910,8 +919,13 @@ class SyntheticBcolzTestCase(zf.WithAdjustmentReader,
             frequency=cls.trading_calendar.day,
             periods_between_starts=4,
             asset_lifetime=8,
+            exchange='NYSE',
         )
         return ret
+
+    @classmethod
+    def make_exchanges_info(cls, *args, **kwargs):
+        return DataFrame({'exchange': ['NYSE'], 'country_code': ['US']})
 
     @classmethod
     def make_equity_daily_bar_data(cls):
@@ -932,6 +946,7 @@ class SyntheticBcolzTestCase(zf.WithAdjustmentReader,
         cls.engine = SimplePipelineEngine(
             lambda c: cls.pipeline_loader,
             cls.asset_finder,
+            default_domain=USEquities,
         )
 
     def write_nans(self, df):
@@ -993,11 +1008,7 @@ class SyntheticBcolzTestCase(zf.WithAdjustmentReader,
                 self.equity_info,
                 'close',
             ),
-        ).rolling(
-            window_length,
-            min_periods=1,
-        ).mean(
-        ).values
+        ).rolling(window_length, min_periods=1).mean().values
 
         expected = DataFrame(
             # Truncate off the extra rows needed to compute the SMAs.
@@ -1054,6 +1065,7 @@ class ParameterizedFactorTestCase(zf.WithAssetFinder,
     sids = ASSET_FINDER_EQUITY_SIDS = Int64Index([1, 2, 3])
     START_DATE = Timestamp('2015-01-31', tz='UTC')
     END_DATE = Timestamp('2015-03-01', tz='UTC')
+    ASSET_FINDER_COUNTRY_CODE = '??'
 
     @classmethod
     def init_class_fixtures(cls):
@@ -1087,14 +1099,19 @@ class ParameterizedFactorTestCase(zf.WithAssetFinder,
             cls.raw_data * 2,
         )
 
+        loader_map = {
+            EquityPricing.open: open_loader,
+            EquityPricing.close: close_loader,
+            EquityPricing.volume: volume_loader,
+        }
+
+        def get_loader(c):
+            return loader_map[c.unspecialize()]
+
         cls.engine = SimplePipelineEngine(
-            {
-                EquityPricing.open: open_loader,
-                EquityPricing.close: close_loader,
-                EquityPricing.volume: volume_loader,
-            }.__getitem__,
-            cls.dates,
+            get_loader,
             cls.asset_finder,
+            default_domain=EquitySessionDomain(cls.dates, '??'),
         )
 
     def expected_ewma(self, window_length, decay_rate):
@@ -1269,6 +1286,8 @@ class ParameterizedFactorTestCase(zf.WithAssetFinder,
 
 class StringColumnTestCase(zf.WithSeededRandomPipelineEngine,
                            zf.ZiplineTestCase):
+    ASSET_FINDER_COUNTRY_CODE = 'US'
+    SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = USEquities
 
     @skipIf(new_pandas, skip_pipeline_new_pandas)
     def test_string_classifiers_produce_categoricals(self):
@@ -1300,7 +1319,8 @@ class StringColumnTestCase(zf.WithSeededRandomPipelineEngine,
 
 class WindowSafetyPropagationTestCase(zf.WithSeededRandomPipelineEngine,
                                       zf.ZiplineTestCase):
-
+    ASSET_FINDER_COUNTRY_CODE = 'US'
+    SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = USEquities
     SEEDED_RANDOM_PIPELINE_SEED = 5
 
     def test_window_safety_propagation(self):
@@ -1433,7 +1453,7 @@ class PopulateInitialWorkspaceTestCase(WithConstantInputs,
                     depends_on_precomputed_term_with_window,
                 'depends_on_window_of_precomputed_term':
                     depends_on_window_of_precomputed_term,
-            }),
+            }, domain=self.domain),
             self.dates[-pipeline_length],
             self.dates[-1],
         )
@@ -1475,11 +1495,12 @@ class PopulateInitialWorkspaceTestCase(WithConstantInputs,
         )
 
 
-class ChunkedPipelineTestCase(zf.WithEquityPricingPipelineEngine,
+class ChunkedPipelineTestCase(zf.WithUSEquityPricingPipelineEngine,
                               zf.ZiplineTestCase):
 
     PIPELINE_START_DATE = Timestamp('2006-01-05', tz='UTC')
     END_DATE = Timestamp('2006-12-29', tz='UTC')
+    ASSET_FINDER_COUNTRY_CODE = 'US'
 
     def test_run_chunked_pipeline(self):
         """
@@ -1492,6 +1513,7 @@ class ChunkedPipelineTestCase(zf.WithEquityPricingPipelineEngine,
                 'returns': Returns(window_length=2),
                 'categorical': EquityPricing.close.latest.quantiles(5)
             },
+            domain=USEquities,
         )
         pipeline_result = self.pipeline_engine.run_pipeline(
             pipe,
@@ -1517,7 +1539,13 @@ class MaximumRegressionTest(zf.WithSeededRandomPipelineEngine,
 
         factor = TestingDataSet.float_col.latest
         maximum = factor.top(1)
-        pipe = Pipeline({'factor': factor, 'maximum': maximum})
+        pipe = Pipeline(
+            {'factor': factor, 'maximum': maximum},
+            domain=EquitySessionDomain(
+                self.trading_days,
+                self.ASSET_FINDER_COUNTRY_CODE,
+            ),
+        )
         result = self.run_pipeline(
             pipe, self.trading_days[-5], self.trading_days[-1]
         )
