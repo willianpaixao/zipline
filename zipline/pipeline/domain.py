@@ -39,15 +39,15 @@ class IDomain(Interface):
 Domain = implements(IDomain)
 
 
-# TODO: Better name for this?
-# TODO: Do we want/need memoization for this?
+# TODO_SS: I don't love the name for this.
+# TODO_SS: Do we want/need memoization for this?
 class EquityCountryDomain(Domain):
     """TODO_SS
     """
     @expect_types(
         country_code=str,
         calendar_name=str,
-        __funcname='SingleMarketDomain',
+        __funcname='EquityCountryDomain',
     )
     def __init__(self, country_code, calendar_name):
         self._country_code = country_code
@@ -70,7 +70,7 @@ class EquityCountryDomain(Domain):
         )
 
 
-# TODO: Is this the casing convention we want for domains?
+# TODO_SS: Is this the casing convention we want for domains?
 USEquities = EquityCountryDomain(CountryCode.UNITED_STATES, 'NYSE')
 CanadaEquities = EquityCountryDomain(CountryCode.CANADA, 'TSX')
 # XXX: The actual country code for this is GB. Should we use that for the name
