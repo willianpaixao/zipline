@@ -4,6 +4,7 @@ from os import remove
 
 from logbook import Logger
 import numpy as np
+from numpy import integer as any_integer
 import pandas as pd
 from pandas import Timestamp
 import six
@@ -43,29 +44,29 @@ StockDividend = namedtuple(
 
 
 SQLITE_ADJUSTMENT_COLUMN_DTYPES = {
-    'effective_date': int64_dtype,
+    'effective_date': any_integer,
     'ratio': float64_dtype,
-    'sid': int64_dtype,
+    'sid': any_integer,
 }
 
 
 SQLITE_DIVIDEND_PAYOUT_COLUMN_DTYPES = {
-    'sid': int64_dtype,
-    'ex_date': int64_dtype,
-    'declared_date': int64_dtype,
-    'record_date': int64_dtype,
-    'pay_date': int64_dtype,
+    'sid': any_integer,
+    'ex_date': any_integer,
+    'declared_date': any_integer,
+    'record_date': any_integer,
+    'pay_date': any_integer,
     'amount': float,
 }
 
 
 SQLITE_STOCK_DIVIDEND_PAYOUT_COLUMN_DTYPES = {
-    'sid': int64_dtype,
-    'ex_date': int64_dtype,
-    'declared_date': int64_dtype,
-    'record_date': int64_dtype,
-    'pay_date': int64_dtype,
-    'payment_sid': int64_dtype,
+    'sid': any_integer,
+    'ex_date': any_integer,
+    'declared_date': any_integer,
+    'record_date': any_integer,
+    'pay_date': any_integer,
+    'payment_sid': any_integer,
     'ratio': float,
 }
 
