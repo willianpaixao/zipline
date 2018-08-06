@@ -689,7 +689,23 @@ class SimplePipelineEngine(PipelineEngine):
                term is self._root_mask_dates_term:
                 continue
             if term.domain is NotSpecified:
-                # TODO_SS: Is this enough for safety?
+                # TODO_SS: Should clients be allowed to specify generic
+                # ComputableTerms in populate_initial_workspace? We currently
+                # only specialize LoadableTerms, so if we don't allow this then
+                # there won't be any way to pre-populate a generic term.
+                #
+                # On the other hand, it's not actually possible for
+                # populate_initial_workspace to fill this correctly without
+                # making a bunch of assumptions, because we don't pass it the
+                # domain of execution. It's not hard to pass it the domain, but
+                # that will mean that it will populate with different values
+                # based for the "same" term based on the domain.
+                #
+                # If we decide we want to ban this, we'll also have to update a
+                # bunch a bunch of tests (specifically,
+                # test_{filter,factor,classifier}), that use pre-populated
+                # workspaces as a way to be able to test filter/factor logic
+                # without having to invoke the pipeline loader machinery.
                 if isinstance(term, LoadableTerm):
                     raise RuntimeError(
                         "Loadable workspace terms must be specialized to a "
