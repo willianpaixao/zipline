@@ -1614,10 +1614,10 @@ def random_tick_prices(starting_price,
     count : int
         Number of price observations to return.
     tick_size : float
-        Minimum unit of price movement between observations.
+        Unit of price movement between observations.
     tick_range : (int, int)
-        Pair of lower/upper bounds for number of ticks observed between
-        observations. Samples w
+        Pair of lower/upper bounds for different in the number of ticks
+        between price observations.
     seed : int, optional
         Seed to use for random number generation.
     """
