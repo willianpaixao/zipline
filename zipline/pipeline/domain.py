@@ -152,21 +152,3 @@ class EquitySessionDomain(Domain):
 
     def all_sessions(self):
         return self._sessions
-
-
-# Map from calendar name to default domain for that calendar.
-_DEFAULT_ALGORITHM_DOMAINS = {
-    'NYSE': USEquities,
-    'TSX': CanadaEquities,
-    'LSE': UKEquities,
-}
-
-
-def default_pipeline_domain_for_algorithm(calendar):
-    """
-    Get a default pipeline domain for algorithms running on ``calendar``.
-
-    This will be used to infer a domain for pipelines that only use generic
-    datasets when running in the context of a TradingAlgorithm.
-    """
-    return _DEFAULT_ALGORITHM_DOMAINS.get(calendar.name, NotSpecified)
