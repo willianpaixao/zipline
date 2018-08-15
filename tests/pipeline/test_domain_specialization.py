@@ -3,10 +3,14 @@ import pandas as pd
 from zipline.pipeline import Pipeline
 from zipline.pipeline.data import Column, DataSet
 from zipline.pipeline.data.testing import TestingDataSet
-from zipline.pipeline.domain import USEquities
+from zipline.pipeline.domain import (
+    CanadaEquities,
+    UKEquities,
+    USEquities,
+)
 from zipline.pipeline.factors import CustomFactor
 import zipline.testing.fixtures as zf
-from zipline.testing.core import powerset
+from zipline.testing.core import parameter_space, powerset
 from zipline.testing.predicates import assert_equal
 
 
@@ -60,20 +64,21 @@ class MixedGenericsTestCase(zf.WithSeededRandomPipelineEngine,
 
 class SpecializeTestCase(zf.ZiplineTestCase):
 
-    def test_specialize(self):
+    @parameter_space(domain=[USEquities, CanadaEquities, UKEquities])
+    def test_specialize(self, domain):
         class MyDataSet(DataSet):
             col1 = Column(dtype=float)
             col2 = Column(dtype=int, missing_value=100)
             col3 = Column(dtype=object, missing_value="")
 
-        specialized = MyDataSet.specialize(USEquities)
+        specialized = MyDataSet.specialize(domain)
 
         # Specializations should be memoized.
-        self.assertIs(specialized, MyDataSet.specialize(USEquities))
+        self.assertIs(specialized, MyDataSet.specialize(domain))
 
         # Specializations should have the same name.
         assert_equal(specialized.__name__, "MyDataSet")
-        self.assertIs(specialized.domain, USEquities)
+        self.assertIs(specialized.domain, domain)
 
         for attr in ('col1', 'col2', 'col3'):
             original = getattr(MyDataSet, attr)
@@ -83,30 +88,31 @@ class SpecializeTestCase(zf.ZiplineTestCase):
             # be the same object that we would get from specializing the
             # original column.
             self.assertIsNot(original, new)
-            self.assertIs(new, original.specialize(USEquities))
+            self.assertIs(new, original.specialize(domain))
 
             # Columns should be bound to their respective datasets.
             self.assertIs(original.dataset, MyDataSet)
             self.assertIs(new.dataset, specialized)
 
             # The new column should have the domain of the specialization.
-            assert_equal(new.domain, USEquities)
+            assert_equal(new.domain, domain)
 
             # Names, dtypes, and missing_values should match.
             assert_equal(original.name, new.name)
             assert_equal(original.dtype, new.dtype)
             assert_equal(original.missing_value, new.missing_value)
 
-    def test_unspecialize(self):
+    @parameter_space(domain=[USEquities, CanadaEquities, UKEquities])
+    def test_unspecialize(self, domain):
 
         class MyDataSet(DataSet):
             col1 = Column(dtype=float)
             col2 = Column(dtype=int, missing_value=100)
             col3 = Column(dtype=object, missing_value="")
 
-        specialized = MyDataSet.specialize(USEquities)
+        specialized = MyDataSet.specialize(domain)
         unspecialized = specialized.unspecialize()
-        specialized_again = unspecialized.specialize(USEquities)
+        specialized_again = unspecialized.specialize(domain)
 
         self.assertIs(unspecialized, MyDataSet)
         self.assertIs(specialized, specialized_again)
