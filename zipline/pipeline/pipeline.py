@@ -8,7 +8,7 @@ from zipline.utils.input_validation import (
 )
 
 from .domain import Domain, infer_domain
-from .graph import ExecutionPlan, TermGraph, _SCREEN_NAME
+from .graph import ExecutionPlan, TermGraph, SCREEN_NAME
 from .filters import Filter
 from .sentinels import NotSpecified, NotSpecifiedType
 from .term import AssetExists, ComputableTerm, Term
@@ -222,7 +222,7 @@ class Pipeline(object):
         screen = self.screen
         if screen is None:
             screen = default_screen
-        columns[_SCREEN_NAME] = screen
+        columns[SCREEN_NAME] = screen
         return columns
 
     @expect_element(format=('svg', 'png', 'jpeg'))

@@ -20,7 +20,7 @@ class CyclicDependency(Exception):
 #
 # (Yes, technically, a user can import this file and pass this as the name of a
 # column. If you do that you deserve whatever bizarre failure you cause.)
-_SCREEN_NAME = 'screen_' + uuid.uuid4().hex
+SCREEN_NAME = 'screen_' + uuid.uuid4().hex
 
 
 class TermGraph(object):
@@ -105,7 +105,7 @@ class TermGraph(object):
     def screen_name(self):
         """Name of the specially-designated ``screen`` term for the pipeline.
         """
-        return _SCREEN_NAME
+        return SCREEN_NAME
 
     def execution_order(self, refcounts):
         """
