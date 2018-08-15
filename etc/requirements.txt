@@ -81,4 +81,5 @@ tables==3.3.0
 # For trading calendars
 trading-calendars==1.0.1
 
-interface==1.4.0
+# Interface definitions.
+python-interface==1.4.0
