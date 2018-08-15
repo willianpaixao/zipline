@@ -24,15 +24,12 @@ class IDomain(Interface):
         """Country code for assets on this domain.
         """
 
-    # TODO_SS: The original design for domains was to have them return a
-    # TradingCalendar, but we have a bunch of tests in test_blaze that use very
-    # short session indices that I don't know how to port to using a proper
-    # TradingCalendar.
-    #
-    # Is there a strong reason to prefer just exposing the calendar
-    # vs. exposing the sessions? If so, what do we do about the blaze tests?
     def all_sessions(self):
-        """Get all trading sessions for the calendar of this domain.
+        """
+        Get all trading sessions for the calendar of this domain.
+
+        This determines the row labels of Pipeline outputs for pipelines run on
+        this domain.
         """
 
 

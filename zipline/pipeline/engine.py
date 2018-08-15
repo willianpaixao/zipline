@@ -1,5 +1,59 @@
 """
-Compute Engine definitions for the Pipeline API.
+Computation engines for executing Pipelines.
+
+This module defines the core computation algorithms for executing Pipelines.
+
+The primary entrypoint of this file is SimplePipelineEngine.run_pipeline, which
+implements the following algorithm for executing pipelines:
+
+1. Determine the domain of the pipeline. The domain determines the
+   top-level set of dates and assets that serve as row- and
+   column-labels for the computations performed by this
+   pipeline. This logic lives in
+   zipline.pipeline.domain.infer_domain.
+
+2. Build a dependency graph of all terms in `pipeline`, with
+   information about how many extra rows each term needs from its
+   inputs. At this point we also **specialize** any generic
+   LoadableTerms to the domain determined in (1). This logic lives in
+   zipline.pipeline.graph.TermGraph and
+   zipline.pipeline.graph.ExecutionPlan.
+
+3. Combine the domain computed in (2) with our AssetFinder to produce
+   a "lifetimes matrix". The lifetimes matrix is a DataFrame of
+   booleans whose labels are dates x assets. Each entry corresponds
+   to a (date, asset) pair and indicates whether the asset in
+   question was tradable on the date in question. This logic
+   primarily lives in AssetFinder.lifetimes.
+
+4. Call self._populate_initial_workspace, which produces a
+   "workspace" dictionary containing cached or otherwise pre-computed
+   terms. By default, the initial workspace contains the lifetimes
+   matrix and its date labels.
+
+5. Topologically sort the graph constructed in (1) to produce an
+   execution order for any terms that were not pre-populated.  This
+   logic lives in TermGraph.
+
+6. Iterate over the terms in the order computed in (5). For each term:
+
+   a. Fetch the term's inputs from the workspace, possibly removing
+      unneeded leading rows from the input (see ExecutionPlan.offset
+      for details on why we might have extra leading rows).
+
+   b. Call ``term._compute`` with the inputs. Store the results into
+      the workspace.
+
+   c. Decrement "reference counts" on the term's inputs, and remove
+      their results from the workspace if the refcount hits 0. This
+      significantly reduces the maximum amount of memory that we
+      consume during execution
+
+   This logic lives in SimplePipelineEngine.compute_chunk.
+
+7. Extract the pipeline's outputs from the workspace and convert them
+   into "narrow" format, with output labels dictated by the Pipeline's
+   screen. This logic lives in SimplePipelineEngine._to_narrow.
 """
 from abc import (
     ABCMeta,
@@ -28,6 +82,7 @@ from zipline.utils.numpy_utils import (
 from zipline.utils.pandas_utils import explode
 
 from .domain import Domain
+from .graph import maybe_specialize
 from .sentinels import NotSpecified, NotSpecifiedType
 from .term import AssetExists, InputDates, LoadableTerm
 
@@ -224,36 +279,6 @@ class SimplePipelineEngine(PipelineEngine):
         """
         Compute a pipeline.
 
-        The algorithm implemented here can be broken down into the following
-        stages:
-
-        0. Build a dependency graph of all terms in `pipeline`.  Topologically
-           sort the graph to determine an order in which we can compute the
-           terms.
-
-        1. Ask our AssetFinder for a "lifetimes matrix", which should contain,
-           for each date between start_date and end_date, a boolean value for
-           each known asset indicating whether the asset existed on that date.
-
-        2. Compute each term in the dependency order determined in (0), caching
-           the results in a a dictionary to that they can be fed into future
-           terms.
-
-        3. For each date, determine the number of assets passing
-           pipeline.screen.  The sum, N, of all these values is the total
-           number of rows in our output frame, so we pre-allocate an output
-           array of length N for each factor in `terms`.
-
-        4. Fill in the arrays allocated in (3) by copying computed values from
-           our output cache into the corresponding rows.
-
-        5. Stick the values computed in (4) into a DataFrame and return it.
-
-        Step 0 is performed by ``Pipeline.to_graph``.
-        Step 1 is performed in ``SimplePipelineEngine._compute_root_mask``.
-        Step 2 is performed in ``SimplePipelineEngine.compute_chunk``.
-        Steps 3, 4, and 5 are performed in ``SimplePiplineEngine._to_narrow``.
-
         Parameters
         ----------
         pipeline : zipline.pipeline.Pipeline
@@ -282,10 +307,13 @@ class SimplePipelineEngine(PipelineEngine):
         :meth:`zipline.pipeline.engine.PipelineEngine.run_pipeline`
         :meth:`zipline.pipeline.engine.PipelineEngine.run_chunked_pipeline`
         """
+        # See notes at the top of this module for a description of the
+        # algorithm implemented here.
         if end_date < start_date:
             raise ValueError(
                 "start_date must be before or equal to end_date \n"
                 "start_date=%s, end_date=%s" % (start_date, end_date)
+
             )
 
         domain = self._resolve_domain(pipeline)
@@ -388,6 +416,9 @@ class SimplePipelineEngine(PipelineEngine):
                 lookback_length=extra_rows,
             )
 
+        # NOTE: This logic should probably be delegated to the domain once we
+        #       start adding more complex domains.
+        #
         # Build lifetimes matrix reaching back to `extra_rows` days before
         # `start_date.`
         finder = self._finder
@@ -685,9 +716,9 @@ class SimplePipelineEngine(PipelineEngine):
             )
 
         for term in initial_workspace:
-            if term is self._root_mask_term or \
-               term is self._root_mask_dates_term:
+            if self._is_special_root_term(term):
                 continue
+
             if term.domain is NotSpecified:
                 # TODO_SS: Should clients be allowed to specify generic
                 # ComputableTerms in populate_initial_workspace? We currently
@@ -728,8 +759,8 @@ class SimplePipelineEngine(PipelineEngine):
             raise RuntimeError("Failed to infer domain for Pipeline.")
         return domain
 
-
-def maybe_specialize(term, domain):
-    if isinstance(term, LoadableTerm):
-        return term.specialize(domain)
-    return term
+    def _is_special_root_term(self, term):
+        return (
+            term is self._root_mask_term
+            or term is self._root_mask_dates_term
+        )

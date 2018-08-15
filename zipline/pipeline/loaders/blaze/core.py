@@ -294,6 +294,8 @@ def new_dataset(expr, missing_values, domain):
 
         This needs to be a frozenset rather than a dict or tuple of tuples
         because we want a collection that's unordered but still hashable.
+    domain : zipline.pipeline.domain.Domain
+        Domain of the dataset to be created.
 
     Returns
     -------

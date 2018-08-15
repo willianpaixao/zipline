@@ -239,7 +239,7 @@ class ExecutionPlan(TermGraph):
 
     Methods
     -------
-    ordered(self)
+    ordered()
         Return a topologically-sorted iterator over the terms in self.
     execution_order(self, refcounts)
         Return a topologically-sorted iterator over the terms in self, skipping
@@ -253,14 +253,23 @@ class ExecutionPlan(TermGraph):
                  min_extra_rows=0):
         super(ExecutionPlan, self).__init__(terms)
 
-        # Specialize loadable terms.
-        # NOTE: This isn't using self.loadable_terms because we don't want to
-        # trigger caching of the lazyval.
+        # Specialize all the LoadableTerms in the graph to our domain, so that
+        # when the engine requests an execution order, we emit the specialized
+        # versions of loadable terms.
+        #
+        # NOTE: We're explicitly avoiding using self.loadable_terms here.
+        #
+        # At this point the graph still contains un-specialized loadable terms,
+        # and this is where we're actually going through and specializing all
+        # of them. We don't want use self.loadable_terms because it's a
+        # lazyval, and we don't want its result to be cached until after we've
+        # specialized.
         specializations = {
             t: t.specialize(domain)
             for t in self.graph if isinstance(t, LoadableTerm)
         }
         self.graph = nx.relabel_nodes(self.graph, specializations)
+
         self.domain = domain
 
         sessions = domain.all_sessions()
@@ -477,6 +486,8 @@ class ExecutionPlan(TermGraph):
                 assert term.domain is domain
 
 
+# XXX: This function exists because we currently only specialize LoadableTerms
+#      when running a Pipeline on a given domain.
 def maybe_specialize(term, domain):
     """Specialize a term if it's loadable.
     """
