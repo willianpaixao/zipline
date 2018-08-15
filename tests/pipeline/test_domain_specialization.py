@@ -26,14 +26,6 @@ class MixedGenericsTestCase(zf.WithSeededRandomPipelineEngine,
     ASSET_FINDER_EQUITY_SIDS = (1, 2, 3, 4, 5)
     ASSET_FINDER_COUNTRY_CODE = 'US'
 
-    def create_equivalent_sums(self, length):
-        dataset = TestingDataSet
-        return [
-            Sum.create(dataset.float_col, length),
-            Sum.create(dataset.float_col.specialize(USEquities), length),
-            Sum.create(dataset.specialize(USEquities).float_col, 1),
-        ]
-
     def test_mixed_generics(self):
         """
         Test that we can run pipelines with mixed generic/non-generic terms.
