@@ -1,6 +1,7 @@
 import pandas as pd
 
 from zipline.pipeline import Pipeline
+from zipline.pipeline.data import Column, DataSet
 from zipline.pipeline.data.testing import TestingDataSet
 from zipline.pipeline.domain import USEquities
 from zipline.pipeline.factors import CustomFactor
@@ -55,3 +56,57 @@ class MixedGenericsTestCase(zf.WithSeededRandomPipelineEngine,
             result = run(subset_terms).sort_index(axis=1)
             expected = base_result[list(subset)].sort_index(axis=1)
             assert_equal(result, expected)
+
+
+class SpecializeTestCase(zf.ZiplineTestCase):
+
+    def test_specialize(self):
+        class MyDataSet(DataSet):
+            col1 = Column(dtype=float)
+            col2 = Column(dtype=int, missing_value=100)
+            col3 = Column(dtype=object, missing_value="")
+
+        specialized = MyDataSet.specialize(USEquities)
+
+        # Specializations should be memoized.
+        self.assertIs(specialized, MyDataSet.specialize(USEquities))
+
+        # Specializations should have the same name.
+        assert_equal(specialized.__name__, "MyDataSet")
+        self.assertIs(specialized.domain, USEquities)
+
+        for attr in ('col1', 'col2', 'col3'):
+            original = getattr(MyDataSet, attr)
+            new = getattr(specialized, attr)
+
+            # We should get a new column from the specialization, which should
+            # be the same object that we would get from specializing the
+            # original column.
+            self.assertIsNot(original, new)
+            self.assertIs(new, original.specialize(USEquities))
+
+            # Columns should be bound to their respective datasets.
+            self.assertIs(original.dataset, MyDataSet)
+            self.assertIs(new.dataset, specialized)
+
+            # The new column should have the domain of the specialization.
+            assert_equal(new.domain, USEquities)
+
+            # Names, dtypes, and missing_values should match.
+            assert_equal(original.name, new.name)
+            assert_equal(original.dtype, new.dtype)
+            assert_equal(original.missing_value, new.missing_value)
+
+    def test_unspecialize(self):
+
+        class MyDataSet(DataSet):
+            col1 = Column(dtype=float)
+            col2 = Column(dtype=int, missing_value=100)
+            col3 = Column(dtype=object, missing_value="")
+
+        specialized = MyDataSet.specialize(USEquities)
+        unspecialized = specialized.unspecialize()
+        specialized_again = unspecialized.specialize(USEquities)
+
+        self.assertIs(unspecialized, MyDataSet)
+        self.assertIs(specialized, specialized_again)
