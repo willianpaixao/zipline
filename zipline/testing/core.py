@@ -1096,7 +1096,49 @@ def temp_pipeline_engine(calendar, sids, random_seed, symbols=None):
         yield SimplePipelineEngine(get_loader, calendar, finder)
 
 
-_FAIL_FAST_DEFAULT = bool(os.environ.get('PARAMETER_SPACE_FAIL_FAST'))
+def bool_from_envvar(name, default=False, env=None):
+    """
+    Get a boolean value from the environment, making a reasonable attempt to
+    convert "truthy" values to True and "falsey" values to False.
+
+    Strings are coerced to bools using ``json.loads(s.lower())``.
+
+    Parameters
+    ----------
+    name : str
+        Name of the environment variable.
+    default : bool, optional
+        Value to use if the environment variable isn't set. Default is False
+    env : dict-like, optional
+        Mapping in which to look up ``name``. This is a parameter primarily for
+        testing purposes. Default is os.environ.
+
+    Returns
+    -------
+    value : bool
+        ``env[name]`` coerced to a boolean, or ``default`` if ``name`` is not
+        in ``env``.
+    """
+    if env is None:
+        env = os.environ
+
+    value = env.get(name)
+    if value is None:
+        return default
+
+    try:
+        # Try to parse as JSON. This makes strings like "0", "False", and
+        # "null" evaluate as falsey values.
+        value = json.loads(value.lower())
+    except ValueError:
+        # If the value can't be parsed as json, assume it should be treated as
+        # a string for the purpose of evaluation.
+        pass
+
+    return bool(value)
+
+
+_FAIL_FAST_DEFAULT = bool_from_envvar('PARAMETER_SPACE_FAIL_FAST')
 
 
 def parameter_space(__fail_fast=_FAIL_FAST_DEFAULT, **params):
