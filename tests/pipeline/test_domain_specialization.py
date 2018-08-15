@@ -116,3 +116,12 @@ class SpecializeTestCase(zf.ZiplineTestCase):
 
         self.assertIs(unspecialized, MyDataSet)
         self.assertIs(specialized, specialized_again)
+
+        for attr in ('col1', 'col2', 'col3'):
+            original = getattr(MyDataSet, attr)
+            new = getattr(specialized, attr)
+            # Unspecializing a specialization should give back the original.
+            self.assertIs(new.unspecialize(), original)
+            # Specializing again should give back the same as the first
+            # specialization.
+            self.assertIs(new.unspecialize().specialize(domain), new)
