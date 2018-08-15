@@ -872,8 +872,6 @@ class BlazeToPipelineTestCase(WithAssetFinder, ZiplineTestCase):
                                   Equity(66 [B])          3    3.0
                                   Equity(67 [C])          4    4.0
         """
-        dates = self.dates
-
         df = self.df.copy()
         df['timestamp'] = (
             pd.DatetimeIndex(df['timestamp'], tz='EST') +
@@ -896,7 +894,7 @@ class BlazeToPipelineTestCase(WithAssetFinder, ZiplineTestCase):
 
         result = SimplePipelineEngine(
             loader, self.asset_finder,
-        ).run_pipeline(p, dates[0], dates[-1])
+        ).run_pipeline(p, self.dates[0], self.dates[-1])
 
         expected = df.drop('asof_date', axis=1)
         expected['timestamp'] = expected['timestamp'].dt.normalize().astype(
