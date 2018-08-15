@@ -191,12 +191,6 @@ class WithConstantInputs(zf.WithAssetFinder):
             EquityPricing.high: 4,
         }
 
-        # TODO_SS: This is gross. Can we figure out a way to avoid having to
-        # care about specialized and non-specialized versions of stuff?
-        loader_constants = keymap(
-            lambda c: c.specialize(cls.domain), cls.constants
-        )
-
         cls.dates = date_range(
             cls.START_DATE,
             cls.END_DATE,
@@ -204,7 +198,7 @@ class WithConstantInputs(zf.WithAssetFinder):
             tz='UTC',
         )
         cls.loader = PrecomputedLoader(
-            constants=loader_constants,
+            constants=cls.constants,
             dates=cls.dates,
             sids=cls.asset_ids,
         )
