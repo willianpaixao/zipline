@@ -386,14 +386,21 @@ class ExecutionPlan(TermGraph):
         :meth:`zipline.pipeline.engine.SimplePipelineEngine._inputs_for_term`
         """
         extra = self.extra_rows
-        return {
-            # Another way of thinking about this is:
-            # How much bigger is the array for ``dep`` compared to ``term``?
-            # How much of that difference did I ask for.
-            (term, maybe_specialize(dep, self.domain)): (extra[maybe_specialize(dep, self.domain)] - extra[term]) - requested_extra_rows  # noqa TODO_SS
-            for term in self.graph
-            for dep, requested_extra_rows in term.dependencies.items()
-        }
+
+        out = {}
+        for term in self.graph:
+            for dep, requested_extra_rows in term.dependencies.items():
+                special_dep = maybe_specialize(dep, self.domain)
+
+                # How much bigger is the result for ``dep`` compared to ``term``.
+                size_difference = extra[special_dep] - extra[term]
+
+                # Subtract the portion of that difference that was requested by
+                # ``term``.
+                offset = size_difference - requested_extra_rows
+                out[term, special_dep] = offset
+
+        return out
 
     @lazyval
     def extra_rows(self):
