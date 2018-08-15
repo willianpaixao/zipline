@@ -747,7 +747,10 @@ class TestDownsampledRowwiseOperation(WithAssetFinder, ZiplineTestCase):
         cls.pipeline_engine = SimplePipelineEngine(
             get_loader=lambda c: ExplodingObject(),
             asset_finder=cls.asset_finder,
-            default_domain=EquitySessionDomain(cls.dates, country_code='??'),
+            default_domain=EquitySessionDomain(
+                cls.dates,
+                country_code=cls.ASSET_FINDER_COUNTRY_CODE,
+            ),
         )
 
     @classmethod
