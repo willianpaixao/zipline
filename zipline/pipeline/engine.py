@@ -738,12 +738,13 @@ class SimplePipelineEngine(PipelineEngine):
                 # workspaces as a way to be able to test filter/factor logic
                 # without having to invoke the pipeline loader machinery.
                 if isinstance(term, LoadableTerm):
-                    raise RuntimeError(
+                    raise ValueError(
                         "Loadable workspace terms must be specialized to a "
                         "domain, but got generic term {}".format(term)
                     )
+
             elif term.domain != graph.domain:
-                raise RuntimeError(
+                raise ValueError(
                     "Initial workspace term {} has domain {}. "
                     "Does not match pipeline domain {}".format(
                         term, term.domain, graph.domain,
