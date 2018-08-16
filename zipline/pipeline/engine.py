@@ -253,7 +253,6 @@ class SimplePipelineEngine(PipelineEngine):
     )
 
     @expect_types(
-        asset_finder=AssetFinder,
         default_domain=(Domain, NotSpecifiedType),
         __funcname='SimplePipelineEngine',
     )
