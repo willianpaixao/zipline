@@ -66,62 +66,134 @@ class SpecializeTestCase(zf.ZiplineTestCase):
 
     @parameter_space(domain=[USEquities, CanadaEquities, UKEquities])
     def test_specialize(self, domain):
-        class MyDataSet(DataSet):
+        class MyData(DataSet):
             col1 = Column(dtype=float)
             col2 = Column(dtype=int, missing_value=100)
             col3 = Column(dtype=object, missing_value="")
 
-        specialized = MyDataSet.specialize(domain)
+        class MyDataSubclass(MyData):
+            col4 = Column(dtype=float)
 
-        # Specializations should be memoized.
-        self.assertIs(specialized, MyDataSet.specialize(domain))
+        def do_checks(cls, colnames):
 
-        # Specializations should have the same name.
-        assert_equal(specialized.__name__, "MyDataSet")
-        self.assertIs(specialized.domain, domain)
+            specialized = cls.specialize(domain)
 
-        for attr in ('col1', 'col2', 'col3'):
-            original = getattr(MyDataSet, attr)
-            new = getattr(specialized, attr)
+            # Specializations should be memoized.
+            self.assertIs(specialized, cls.specialize(domain))
 
-            # We should get a new column from the specialization, which should
-            # be the same object that we would get from specializing the
-            # original column.
-            self.assertIsNot(original, new)
-            self.assertIs(new, original.specialize(domain))
+            # Specializations should have the same name.
+            assert_equal(specialized.__name__, cls.__name__)
+            self.assertIs(specialized.domain, domain)
 
-            # Columns should be bound to their respective datasets.
-            self.assertIs(original.dataset, MyDataSet)
-            self.assertIs(new.dataset, specialized)
+            for attr in colnames:
+                original = getattr(cls, attr)
+                new = getattr(specialized, attr)
 
-            # The new column should have the domain of the specialization.
-            assert_equal(new.domain, domain)
+                # We should get a new column from the specialization, which
+                # should be the same object that we would get from specializing
+                # the original column.
+                self.assertIsNot(original, new)
+                self.assertIs(new, original.specialize(domain))
 
-            # Names, dtypes, and missing_values should match.
-            assert_equal(original.name, new.name)
-            assert_equal(original.dtype, new.dtype)
-            assert_equal(original.missing_value, new.missing_value)
+                # Columns should be bound to their respective datasets.
+                self.assertIs(original.dataset, cls)
+                self.assertIs(new.dataset, specialized)
+
+                # The new column should have the domain of the specialization.
+                assert_equal(new.domain, domain)
+
+                # Names, dtypes, and missing_values should match.
+                assert_equal(original.name, new.name)
+                assert_equal(original.dtype, new.dtype)
+                assert_equal(original.missing_value, new.missing_value)
+
+        do_checks(MyData, ['col1', 'col2', 'col3'])
+        do_checks(MyDataSubclass, ['col1', 'col2', 'col3', 'col4'])
 
     @parameter_space(domain=[USEquities, CanadaEquities, UKEquities])
     def test_unspecialize(self, domain):
 
-        class MyDataSet(DataSet):
+        class MyData(DataSet):
             col1 = Column(dtype=float)
             col2 = Column(dtype=int, missing_value=100)
             col3 = Column(dtype=object, missing_value="")
 
-        specialized = MyDataSet.specialize(domain)
-        unspecialized = specialized.unspecialize()
-        specialized_again = unspecialized.specialize(domain)
+        class MyDataSubclass(MyData):
+            col4 = Column(dtype=float)
 
-        self.assertIs(unspecialized, MyDataSet)
-        self.assertIs(specialized, specialized_again)
+        def do_checks(cls, colnames):
+            specialized = cls.specialize(domain)
+            unspecialized = specialized.unspecialize()
+            specialized_again = unspecialized.specialize(domain)
 
-        for attr in ('col1', 'col2', 'col3'):
-            original = getattr(MyDataSet, attr)
-            new = getattr(specialized, attr)
-            # Unspecializing a specialization should give back the original.
-            self.assertIs(new.unspecialize(), original)
-            # Specializing again should give back the same as the first
-            # specialization.
-            self.assertIs(new.unspecialize().specialize(domain), new)
+            self.assertIs(unspecialized, cls)
+            self.assertIs(specialized, specialized_again)
+
+            for attr in colnames:
+                original = getattr(cls, attr)
+                new = getattr(specialized, attr)
+                # Unspecializing a specialization should give back the
+                # original.
+                self.assertIs(new.unspecialize(), original)
+                # Specializing again should give back the same as the first
+                # specialization.
+                self.assertIs(new.unspecialize().specialize(domain), new)
+
+        do_checks(MyData, ['col1', 'col2', 'col3'])
+        do_checks(MyDataSubclass, ['col1', 'col2', 'col3', 'col4'])
+
+    @parameter_space(domain_param=[USEquities, CanadaEquities])
+    def test_specialized_root(self, domain_param):
+        different_domain = UKEquities
+
+        class MyData(DataSet):
+            domain = domain_param
+            col1 = Column(dtype=float)
+
+        class MyDataSubclass(MyData):
+            col2 = Column(dtype=float)
+
+        def do_checks(cls, colnames):
+            self.assertFalse(cls.can_specialize)
+
+            # DataSets with concrete domains can't be specialized to other
+            # concrete domains.
+            with self.assertRaises(ValueError):
+                cls.specialize(different_domain)
+
+            # Same goes for columns of the dataset.
+            for name in colnames:
+                col = getattr(cls, name)
+                with self.assertRaises(ValueError):
+                    col.specialize(different_domain)
+
+            # We always allow unspecializing to simplify the implementation of
+            # loaders and dispatchers that want to use the same loader for an
+            # entire dataset family.
+            generic_non_root = cls.unspecialize()
+
+            # Even though it's generic, dataset created this way can't be
+            # specialized...
+            self.assertFalse(generic_non_root.can_specialize)
+
+            # ...except back to it's original domain.
+            self.assertIs(generic_non_root.specialize(domain_param), cls)
+            for name in colnames:
+                # Same deal for columns.
+                self.assertIs(
+                    getattr(generic_non_root, name).specialize(domain_param),
+                    getattr(cls, name),
+                )
+
+            # Don't allow specializing to any other domain.
+            with self.assertRaises(ValueError):
+                generic_non_root.specialize(different_domain)
+
+            # Same deal for columns.
+            for name in colnames:
+                col = getattr(generic_non_root, name)
+                with self.assertRaises(ValueError):
+                    col.specialize(different_domain)
+
+        do_checks(MyData, ['col1'])
+        do_checks(MyDataSubclass, ['col1', 'col2'])

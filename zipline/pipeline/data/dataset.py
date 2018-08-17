@@ -13,7 +13,7 @@ from toolz import first
 from zipline.pipeline.classifiers import Classifier, Latest as LatestClassifier
 from zipline.pipeline.factors import Factor, Latest as LatestFactor
 from zipline.pipeline.filters import Filter, Latest as LatestFilter
-from zipline.pipeline.sentinels import NotSpecified
+from zipline.pipeline.sentinels import NotSpecified, sentinel
 from zipline.pipeline.term import (
     AssetExists,
     LoadableTerm,
@@ -22,6 +22,9 @@ from zipline.pipeline.term import (
 from zipline.utils.input_validation import ensure_dtype
 from zipline.utils.numpy_utils import NoDefaultMissingValue
 from zipline.utils.preprocess import preprocess
+
+
+IsSpecialization = sentinel('IsSpecialization')
 
 
 class Column(object):
@@ -261,7 +264,8 @@ class DataSetMeta(type):
     """
     Metaclass for DataSets
 
-    Supplies name and dataset information to Column attributes.
+    Supplies name and dataset information to Column attributes, and manages
+    families of specialized dataset.
     """
     def __new__(mcls, name, bases, dict_):
         if len(bases) != 1:
@@ -269,6 +273,8 @@ class DataSetMeta(type):
             # determine whether a given dataset is the root for its family of
             # specializations.
             raise TypeError("Multiple dataset inheritance is not supported.")
+
+        is_specialization = dict_.pop(IsSpecialization, False)
 
         newtype = super(DataSetMeta, mcls).__new__(mcls, name, bases, dict_)
         # collect all of the column names that we inherit from our parents
@@ -284,17 +290,35 @@ class DataSetMeta(type):
 
         newtype._column_names = frozenset(column_names)
 
-        if newtype.domain is NotSpecified:
+        if not is_specialization:
+            # This is the new root of a family of specializations. Store the
+            # memoized dictionary for family on this type.
             newtype._domain_specializations = WeakKeyDictionary({
-                NotSpecified: newtype,
+                newtype.domain: newtype,
             })
-        else:
-            # TODO_SS: This will trigger if you create a DataSet subclass that
-            # sets a domain in the class body. How do we want to fix this?
-            assert newtype.unspecialize() in newtype.mro(), \
-                "Specialization constructed before generic dataset!"
 
         return newtype
+
+    @property
+    def can_specialize(self):
+        """
+        A dataset can be specialized if it's generic and is the root of its
+        specialization family.
+        """
+        # NOTE: It's possible to create a generic dataset that's not the root
+        # of its family by doing something like:
+        #
+        # class MyDataSet(DataSet):
+        #     domain = USEquities
+        #
+        # generic = MyDataSet.unspecialize()
+        #
+        # Even though generic is unspecialized, we don't allow creating new
+        # specializations, since the root dataset can't be specialized.
+        return (
+            self.domain is NotSpecified
+            and '_domain_specializations' in vars(self)
+        )
 
     def specialize(self, domain):
         """
@@ -314,30 +338,22 @@ class DataSetMeta(type):
         # We're already the specialization to this domain, so just return self.
         if domain == self.domain:
             return self
-        elif domain is NotSpecified:
-            # We always ensure that the generic version of dataset is created
-            # before any specializations, so this lookup should always succeed.
-            try:
-                return self._domain_specializations[domain]
-            except KeyError:
-                raise AssertionError(
-                    "Failed to find generic dataset for {}".format(self),
-                )
-        elif self.domain is not NotSpecified:
-            # Can't specialize a concrete domain to another concrete domain.
-            raise ValueError(
-                "Can't specialize {dataset} with domain "
-                "{current} to new domain {new}.".format(
-                    dataset=self.__name__,
-                    current=self.domain,
-                    new=domain,
-                )
-            )
 
-        # Memoize new specializations.
         try:
             return self._domain_specializations[domain]
         except KeyError:
+            if domain is not NotSpecified and not self.can_specialize:
+                # This either means we're already a specialization and trying
+                # to create a new specialization, or we're the generic version
+                # of a root-specialized dataset, which we don't want to create
+                # new specializations of. Disallow both cases.
+                raise ValueError(
+                    "Can't specialize {dataset} to new domain {new}.".format(
+                        dataset=self.__name__,
+                        current=self.domain,
+                        new=domain,
+                    )
+                )
             new_type = self._create_specialization(domain)
             self._domain_specializations[domain] = new_type
             return new_type
@@ -362,8 +378,8 @@ class DataSetMeta(type):
         # our name prefixed with domain.country_code.
         name = self.__name__
         bases = (self,)
-        dict_ = {'domain': domain}
-        return DataSetMeta(name, bases, dict_)
+        dict_ = {'domain': domain, IsSpecialization: True}
+        return type(name, bases, dict_)
 
     @property
     def columns(self):
@@ -442,3 +458,10 @@ class DataSet(with_metaclass(DataSetMeta, object)):
     """
     domain = NotSpecified
     ndim = 2
+
+
+# This attribute is set by DataSetMeta to mark that a class is the root of a
+# family of datasets with diffent domains. We don't want that behavior for the
+# base DataSet class, and we also don't want to accidentally use a shared
+# version of this attribute if we fail to set this in a subclass somewhere.
+del DataSet._domain_specializations
