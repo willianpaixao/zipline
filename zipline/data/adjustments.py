@@ -84,7 +84,7 @@ class SQLiteAdjustmentReader(object):
 
     See Also
     --------
-    :class:`zipline.data.us_equity_pricing.SQLiteAdjustmentWriter`
+    :class:`zipline.data.adjustments.SQLiteAdjustmentWriter`
     """
 
     @preprocess(conn=coerce_string_to_conn(require_exists=True))
@@ -233,7 +233,7 @@ class SQLiteAdjustmentWriter(object):
 
     See Also
     --------
-    zipline.data.us_equity_pricing.SQLiteAdjustmentReader
+    zipline.data.adjustments.SQLiteAdjustmentReader
     """
 
     def __init__(self,
@@ -549,7 +549,7 @@ class SQLiteAdjustmentWriter(object):
 
         See Also
         --------
-        zipline.data.us_equity_pricing.SQLiteAdjustmentReader
+        zipline.data.adjustments.SQLiteAdjustmentReader
         """
         self.write_frame('splits', splits)
         self.write_frame('mergers', mergers)

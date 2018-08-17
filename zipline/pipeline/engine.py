@@ -55,21 +55,11 @@ implements the following algorithm for executing pipelines:
    into "narrow" format, with output labels dictated by the Pipeline's
    screen. This logic lives in SimplePipelineEngine._to_narrow.
 """
-from abc import (
-    ABCMeta,
-    abstractmethod,
-)
-
-from six import (
-    iteritems,
-    with_metaclass,
-    viewkeys,
-)
+from abc import ABCMeta, abstractmethod
+from six import iteritems, with_metaclass, viewkeys
 from numpy import array
 from pandas import DataFrame, MultiIndex
 from toolz import groupby
-
-from zipline.assets import AssetFinder
 
 from zipline.lib.adjusted_array import ensure_adjusted_array, ensure_ndarray
 from zipline.errors import NoFurtherDataError

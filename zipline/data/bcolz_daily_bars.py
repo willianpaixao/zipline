@@ -132,7 +132,7 @@ class BcolzDailyBarWriter(object):
 
     See Also
     --------
-    zipline.data.us_equity_pricing.BcolzDailyBarReader
+    zipline.data.bcolz_daily_bars.BcolzDailyBarReader
     """
     _csv_dtypes = {
         'open': float64_dtype,
@@ -442,7 +442,7 @@ class BcolzDailyBarReader(SessionBarReader):
 
     See Also
     --------
-    zipline.data.us_equity_pricing.BcolzDailyBarWriter
+    zipline.data.bcolz_daily_bars.BcolzDailyBarWriter
     """
     def __init__(self, table, read_all_threshold=3000):
         self._maybe_table_rootdir = table
