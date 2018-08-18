@@ -452,7 +452,9 @@ class SimplePipelineEngine(PipelineEngine):
         offsets = graph.offset
         out = []
 
-        # TODO_SS: Is there a way to push this requirement into the graph?
+        # We need to specialize here because we don't change ComputableTerm
+        # after resolving domains, so they can still contain generic terms as
+        # inputs.
         specialized = [maybe_specialize(t, domain) for t in term.inputs]
 
         if term.windowed:
