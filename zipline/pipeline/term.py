@@ -21,7 +21,6 @@ from zipline.errors import (
     NonExistentAssetInTimeFrame,
     NonSliceableTerm,
     NonWindowSafeInput,
-    NonPipelineInputs,
     NotDType,
     NonPipelineInputs,
     TermInputsNotSpecified,

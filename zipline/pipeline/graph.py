@@ -390,15 +390,15 @@ class ExecutionPlan(TermGraph):
         out = {}
         for term in self.graph:
             for dep, requested_extra_rows in term.dependencies.items():
-                special_dep = maybe_specialize(dep, self.domain)
+                specialized_dep = maybe_specialize(dep, self.domain)
 
-                # How much bigger is the result for ``dep`` compared to ``term``.
-                size_difference = extra[special_dep] - extra[term]
+                # How much bigger is the result for dep compared to term?
+                size_difference = extra[specialized_dep] - extra[term]
 
-                # Subtract the portion of that difference that was requested by
-                # ``term``.
+                # Subtract the portion of that difference that was required by
+                # term's lookback window.
                 offset = size_difference - requested_extra_rows
-                out[term, special_dep] = offset
+                out[term, specialized_dep] = offset
 
         return out
 

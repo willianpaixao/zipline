@@ -89,6 +89,7 @@ from zipline.pipeline.engine import (
     ExplodingPipelineEngine,
     SimplePipelineEngine,
 )
+from zipline.pipeline.sentinels import NotSpecified
 from zipline.utils.api_support import (
     api_method,
     require_initialized,

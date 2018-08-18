@@ -35,7 +35,7 @@ from pandas import (
 from pandas.compat.chainmap import ChainMap
 from pandas.util.testing import assert_frame_equal
 from six import iteritems, itervalues
-from toolz import keymap, merge
+from toolz import merge
 
 from zipline.assets.synthetic import make_rotating_equity_info
 from zipline.errors import NoFurtherDataError
