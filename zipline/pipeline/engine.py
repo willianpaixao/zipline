@@ -709,23 +709,34 @@ class SimplePipelineEngine(PipelineEngine):
                 continue
 
             if term.domain is GENERIC:
-                # TODO_SS: Should clients be allowed to specify generic
-                # ComputableTerms in populate_initial_workspace? We currently
-                # only specialize LoadableTerms, so if we don't allow this then
-                # there won't be any way to pre-populate a generic term.
+                # XXX: We really shouldn't allow **any** generic terms to be
+                # populated in the initial workspace. A generic term, by
+                # definition, can't correspond to concrete data until it's
+                # paired with a domain, and populate_initial_workspace isn't
+                # given the domain of execution, so it can't possibly know what
+                # data to use when populating a generic term.
                 #
-                # On the other hand, it's not actually possible for
-                # populate_initial_workspace to fill this correctly without
-                # making a bunch of assumptions, because we don't pass it the
-                # domain of execution. It's not hard to pass it the domain, but
-                # that will mean that it will populate with different values
-                # based for the "same" term based on the domain.
+                # In our current implementation, however, we don't have a good
+                # way to represent specializations of ComputableTerms that take
+                # only generic inputs, so there's no good way for the initial
+                # workspace to provide data for such terms except by populating
+                # the generic ComputableTerm.
                 #
-                # If we decide we want to ban this, we'll also have to update a
-                # bunch a bunch of tests (specifically,
-                # test_{filter,factor,classifier}), that use pre-populated
-                # workspaces as a way to be able to test filter/factor logic
-                # without having to invoke the pipeline loader machinery.
+                # The right fix for the above is to implement "full
+                # specialization", i.e., implementing ``specialize`` uniformly
+                # across all terms, not just LoadableTerms. Having full
+                # specialization will also remove the need for all of the
+                # remaining ``maybe_specialize`` calls floating around in this
+                # file.
+                #
+                # In the meantime, disallowing ComputableTerms in the initial
+                # workspace would break almost every test in
+                # `test_filter`/`test_factor`/`test_classifier`, and fixing
+                # them would require updating all those tests to compute with
+                # more specialized terms. Once we have full specialization, we
+                # can fix all the tests without a large volume of edits by
+                # simply specializing their workspaces, so for now I'm leaving
+                # this in place as a somewhat sharp edge.
                 if isinstance(term, LoadableTerm):
                     raise ValueError(
                         "Loadable workspace terms must be specialized to a "
