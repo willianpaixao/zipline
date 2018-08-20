@@ -1,6 +1,3 @@
-"""
-dataset.py
-"""
 from functools import total_ordering
 from six import (
     iteritems,
@@ -418,21 +415,36 @@ class DataSetMeta(type):
 
 class DataSet(with_metaclass(DataSetMeta, object)):
     """
-    Base class for describing inputs to Pipeline expressions.
+    Base class for Pipeline datasets.
 
-    A DataSet is a collection of :class:`zipline.pipeline.data.Column` that
-    describes a collection of logically-related inputs to the Pipeline API.
+    A DataSet has two parts:
 
-    To create a new Pipeline dataset, subclass from this class and create
-    columns at class scope for each attribute of your dataset. Each column
-    requires a dtype that describes the type of data that should be produced by
-    a loader for the dataset. Integer columns must also provide a
-    ``missing_value`` to be used when no value is available for a given
-    asset/date combination.
+    1. A collection of :class:`~zipline.pipeline.data.Column` objects that
+       describe the attributes of the dataset.
+
+    2. A :class:`~zipline.pipeline.domain.Domain` describing the assets and
+       calendar of the data represented by the DataSet.
+
+    To create a new Pipeline dataset, define a subclass of DataSet and set one
+    or more Column objects as class-level attributes. Each column requires a
+    ``np.dtype`` that describes the type of data that should be produced by a
+    loader for the dataset. Integer columns must also provide a "missing value"
+    to be used when no value is available for a given asset/date combination.
+
+    By default, the domain of a dataset is the special singleton value GENERIC,
+    which means that they can be used in a Pipeline running on **any** domain.
+
+    In some cases, it may be preferable to restrict a dataset to only allow
+    support a single domain. For example, a DataSet may describe data from a
+    vendor that only covers the US. To restrict a dataset to a specific domain,
+    define a `domain` attribute at class scope.
+
+    You can also define a domain-specific version of a generic DataSet by
+    calling its `specialize` method with the domain of interest.
 
     Examples
     --------
-    The built-in USEquityPricing dataset is defined as follows::
+    The built-in EquityPricing dataset is defined as follows::
 
         class EquityPricing(DataSet):
             open = Column(float)
@@ -440,6 +452,12 @@ class DataSet(with_metaclass(DataSetMeta, object)):
             low = Column(float)
             close = Column(float)
             volume = Column(float)
+
+    The built-in USEquityPricing dataset is a specialization of
+    EquityPricing. It is defined as::
+
+        from zipline.pipeline.domain import US_EQUITIES
+        USEquityPricing = EquityPricing.specialize(US_EQUITIES)
 
     Columns can have types other than float. A dataset containing assorted
     company metadata might be defined like this::
@@ -450,8 +468,8 @@ class DataSet(with_metaclass(DataSetMeta, object)):
             # value for floats is NaN.
             shares_outstanding = Column(float)
 
-            # Use object-dtype for string columns. The default missing value
-            # for object-dtype columns is None.
+            # Use object for string columns. The default missing value for
+            # object-dtype columns is None.
             ticker = Column(object)
 
             # Use integers for integer-valued categorical data like sector or
@@ -459,7 +477,8 @@ class DataSet(with_metaclass(DataSetMeta, object)):
             # value.
             sector_code = Column(int, missing_value=-1)
 
-            # The default missing value for bool-dtype columns is False.
+            # Use bool for boolean-valued flags. Note that the default missing
+            # value for bool-dtype columns is False.
             is_primary_share = Column(bool)
 
     Notes
