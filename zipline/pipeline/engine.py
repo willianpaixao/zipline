@@ -756,8 +756,11 @@ class SimplePipelineEngine(PipelineEngine):
         """
         domain = pipeline.domain(default=self._default_domain)
         if domain is GENERIC:
-            # TODO_SS: Better error message here.
-            raise RuntimeError("Failed to infer domain for Pipeline.")
+            raise ValueError(
+                "Unable to determine domain for Pipeline.\n"
+                "Pass domain=<desired domain> to your Pipeline to set a "
+                "domain."
+            )
         return domain
 
     def _is_special_root_term(self, term):
