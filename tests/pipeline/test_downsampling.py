@@ -15,7 +15,12 @@ from zipline.pipeline import (
     SimplePipelineEngine,
 )
 from zipline.pipeline.data.testing import TestingDataSet
-from zipline.pipeline.domain import US_EQUITIES, EquitySessionDomain
+from zipline.pipeline.domain import (
+    CA_EQUITIES,
+    EquitySessionDomain,
+    GB_EQUITIES,
+    US_EQUITIES,
+)
 from zipline.pipeline.factors import SimpleMovingAverage
 from zipline.pipeline.filters.smoothing import All
 from zipline.testing import ZiplineTestCase, parameter_space, ExplodingObject
@@ -24,6 +29,7 @@ from zipline.testing.fixtures import (
     WithSeededRandomPipelineEngine,
     WithAssetFinder,
 )
+from zipline.utils.classproperty import classproperty
 from zipline.utils.input_validation import _qualified_name
 from zipline.utils.numpy_utils import int64_dtype
 
@@ -586,7 +592,6 @@ class ComputeExtraRowsTestCase(WithTradingSessions, ZiplineTestCase):
             )
 
 
-# TODO_SS: Tests for downsampling on different domains.
 class DownsampledPipelineTestCase(WithSeededRandomPipelineEngine,
                                   ZiplineTestCase):
 
@@ -597,8 +602,19 @@ class DownsampledPipelineTestCase(WithSeededRandomPipelineEngine,
     END_DATE = pd.Timestamp('2015-01-06', tz='UTC')
 
     ASSET_FINDER_EQUITY_SIDS = tuple(range(10))
-    ASSET_FINDER_COUNTRY_CODE = 'US'
-    SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = US_EQUITIES
+    DOMAIN = US_EQUITIES
+
+    @classproperty
+    def ASSET_FINDER_COUNTRY_CODE(cls):
+        return cls.DOMAIN.country_code
+
+    @classproperty
+    def SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN(cls):
+        return cls.DOMAIN
+
+    @classproperty
+    def all_sessions(cls):
+        return cls.DOMAIN.all_sessions()
 
     def check_downsampled_term(self, term):
 
@@ -610,7 +626,7 @@ class DownsampledPipelineTestCase(WithSeededRandomPipelineEngine,
         # 16 17 18 19 20 21 22
         # 23 24 25 26 27 28 29
         # 30
-        all_sessions = self.nyse_sessions
+        all_sessions = self.all_sessions
         compute_dates = all_sessions[
             all_sessions.slice_indexer('2014-06-05', '2015-01-06')
         ]
@@ -719,6 +735,14 @@ class DownsampledPipelineTestCase(WithSeededRandomPipelineEngine,
             "for argument 'frequency', but got 'bad' instead."
         ).format(_qualified_name(f.downsample))
         self.assertEqual(str(e.exception), expected)
+
+
+class DownsampledGBPipelineTestCase(DownsampledPipelineTestCase):
+    DOMAIN = GB_EQUITIES
+
+
+class DownsampledCAPipelineTestCase(DownsampledPipelineTestCase):
+    DOMAIN = CA_EQUITIES
 
 
 class TestDownsampledRowwiseOperation(WithAssetFinder, ZiplineTestCase):
