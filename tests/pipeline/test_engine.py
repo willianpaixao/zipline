@@ -488,12 +488,10 @@ class ConstantInputTestCase(WithConstantInputs,
         # the assets existed.
         dates_to_test = self.dates[-30:]
 
-        # TODO_SS: Should clients of this loader need to know/care about
-        # specialization?
         constants = {
-            open_.specialize(self.domain): 1,
-            close.specialize(self.domain): 2,
-            volume.specialize(self.domain): 3,
+            open_: 1,
+            close: 2,
+            volume: 3,
         }
         loader = PrecomputedLoader(
             constants=constants,
