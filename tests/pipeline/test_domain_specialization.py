@@ -1,17 +1,22 @@
+from textwrap import dedent
+
 import pandas as pd
 
 from zipline.pipeline import Pipeline
 from zipline.pipeline.data import Column, DataSet
 from zipline.pipeline.data.testing import TestingDataSet
 from zipline.pipeline.domain import (
+    AmbiguousDomain,
     CanadaEquities,
+    GENERIC,
+    infer_domain,
     UKEquities,
     USEquities,
 )
 from zipline.pipeline.factors import CustomFactor
 import zipline.testing.fixtures as zf
 from zipline.testing.core import parameter_space, powerset
-from zipline.testing.predicates import assert_equal
+from zipline.testing.predicates import assert_equal, assert_messages_equal
 
 
 class Sum(CustomFactor):
@@ -191,3 +196,88 @@ class SpecializeTestCase(zf.ZiplineTestCase):
 
         do_checks(MyData, ['col1'])
         do_checks(MyDataSubclass, ['col1', 'col2'])
+
+
+class D(DataSet):
+    c1 = Column(float)
+    c2 = Column(bool)
+    c3 = Column(object)
+
+
+class InferDomainTestCase(zf.ZiplineTestCase):
+
+    def check(self, inputs, expected):
+        result = infer_domain(inputs)
+        self.assertIs(result, expected)
+
+    def check_fails(self, inputs, expected_domains):
+        with self.assertRaises(AmbiguousDomain) as e:
+            infer_domain(inputs)
+
+        err = e.exception
+        self.assertEqual(err.domains, expected_domains)
+
+        return err
+
+    def test_all_generic(self):
+        self.check([], GENERIC)
+        self.check([D.c1], GENERIC)
+        self.check([D.c1, D.c2], GENERIC)
+        self.check([D.c1, D.c2, D.c3], GENERIC)
+        self.check([D.c1.latest, D.c2.latest, D.c3.latest], GENERIC)
+
+    @parameter_space(domain=[USEquities, UKEquities])
+    def test_all_non_generic(self, domain):
+        D_s = D.specialize(domain)
+        self.check([D_s.c1], domain)
+        self.check([D_s.c1, D_s.c2], domain)
+        self.check([D_s.c1, D_s.c2, D_s.c3], domain)
+        self.check([D_s.c1, D_s.c2, D_s.c3.latest], domain)
+
+    @parameter_space(domain=[USEquities, UKEquities])
+    def test_mix_generic_and_specialized(self, domain):
+        D_s = D.specialize(domain)
+        self.check([D.c1, D_s.c3], domain)
+        self.check([D.c1, D.c2, D_s.c3], domain)
+        self.check([D.c1, D_s.c2, D_s.c3], domain)
+
+    def test_conflict(self):
+        D_US = D.specialize(USEquities)
+        D_CA = D.specialize(CanadaEquities)
+        D_GB = D.specialize(UKEquities)
+
+        # Conflict of size 2.
+        self.check_fails(
+            [D_US.c1, D_CA.c1],
+            [CanadaEquities, USEquities],
+        )
+
+        # Conflict of size 3.
+        self.check_fails(
+            [D_US.c1, D_CA.c1, D_GB.c1],
+            [CanadaEquities, UKEquities, USEquities],
+        )
+
+        # Make sure each domain only appears once if there are duplicates.
+        self.check_fails(
+            [D_US.c1, D_CA.c1, D_CA.c2],
+            [CanadaEquities, USEquities],
+        )
+
+        # Make sure that we filter GENERIC out of the error.
+        self.check_fails(
+            [D_US.c1, D_CA.c1, D.c1],
+            [CanadaEquities, USEquities],
+        )
+
+    def test_ambiguous_domain_repr(self):
+        err = AmbiguousDomain([CanadaEquities, UKEquities, USEquities])
+        result = str(err)
+        expected = dedent(
+            """\
+            Found terms with conflicting domains:
+              - EquityCalendarDomain('CA', 'TSX')
+              - EquityCalendarDomain('GB', 'LSE')
+              - EquityCalendarDomain('US', 'NYSE')"""
+        )
+        assert_messages_equal(result, expected)

@@ -14,6 +14,8 @@ Currently, this means that a domain defines two things:
    the future, we expect to expand this functionality to include more general
    concepts.
 """
+from textwrap import dedent
+
 from interface import implements, Interface
 import pandas as pd
 
@@ -167,13 +169,35 @@ def infer_domain(terms):
         domains.remove(GENERIC)
         return domains.pop()
     else:
-        raise AmbiguousDomain(list(domains))
+        # Remove GENERIC if it's present before raising. Showing it to the user
+        # is confusing because it doesn't contribute to the error.
+        domains.discard(GENERIC)
+        raise AmbiguousDomain(sorted(domains, key=repr))
 
 
+def bulleted_list(items):
+    """Format a bulleted list of values.
+    """
+    return "\n".join(map("  - {}".format, items))
+
+
+# This would be better if we provided more context for which domains came from
+# which terms.
 class AmbiguousDomain(Exception):
     """
     Raised when we attempt to infer a domain from a collection of mixed terms.
     """
+    _TEMPLATE = dedent(
+        """\
+        Found terms with conflicting domains:
+        {domains}"""
+    )
+
+    def __init__(self, domains):
+        self.domains = domains
+
+    def __str__(self):
+        return self._TEMPLATE.format(domains=bulleted_list(self.domains))
 
 
 class EquitySessionDomain(Domain):
