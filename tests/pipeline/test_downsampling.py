@@ -60,7 +60,7 @@ class ComputeExtraRowsTestCase(WithTradingSessions, ZiplineTestCase):
 
     DATA_MIN_DAY = pd.Timestamp('2012-06', tz='UTC')
     DATA_MAX_DAY = pd.Timestamp('2015', tz='UTC')
-    TRADING_CALENDAR_STRS = ('NYSE',)
+    TRADING_CALENDAR_STRS = ('NYSE', 'LSE', 'TSX')
 
     # Test with different window_lengths to ensure that window length is not
     # used when calculating exra rows for the top-level term.
