@@ -89,7 +89,6 @@ from zipline.pipeline.engine import (
     ExplodingPipelineEngine,
     SimplePipelineEngine,
 )
-from zipline.pipeline.sentinels import NotSpecified
 from zipline.utils.api_support import (
     api_method,
     require_initialized,
@@ -2366,7 +2365,7 @@ class TradingAlgorithm(object):
         This will be used to infer a domain for pipelines that only use generic
         datasets when running in the context of a TradingAlgorithm.
         """
-        return _DEFAULT_DOMAINS.get(calendar.name, NotSpecified)
+        return _DEFAULT_DOMAINS.get(calendar.name, domain.GENERIC)
 
     ##################
     # End Pipeline API

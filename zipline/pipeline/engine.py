@@ -71,9 +71,8 @@ from zipline.utils.numpy_utils import (
 )
 from zipline.utils.pandas_utils import explode
 
-from .domain import Domain
+from .domain import Domain, GENERIC
 from .graph import maybe_specialize
-from .sentinels import NotSpecified, NotSpecifiedType
 from .term import AssetExists, InputDates, LoadableTerm
 
 from zipline.utils.date_utils import compute_date_range_chunks
@@ -243,13 +242,13 @@ class SimplePipelineEngine(PipelineEngine):
     )
 
     @expect_types(
-        default_domain=(Domain, NotSpecifiedType),
+        default_domain=Domain,
         __funcname='SimplePipelineEngine',
     )
     def __init__(self,
                  get_loader,
                  asset_finder,
-                 default_domain=NotSpecified,
+                 default_domain=GENERIC,
                  populate_initial_workspace=None):
 
         self._get_loader = get_loader
@@ -263,7 +262,6 @@ class SimplePipelineEngine(PipelineEngine):
         )
         self._default_domain = default_domain
 
-    # TODO_SS: Update this docstring.
     def run_pipeline(self, pipeline, start_date, end_date):
         """
         Compute a pipeline.
@@ -710,7 +708,7 @@ class SimplePipelineEngine(PipelineEngine):
             if self._is_special_root_term(term):
                 continue
 
-            if term.domain is NotSpecified:
+            if term.domain is GENERIC:
                 # TODO_SS: Should clients be allowed to specify generic
                 # ComputableTerms in populate_initial_workspace? We currently
                 # only specialize LoadableTerms, so if we don't allow this then
@@ -746,7 +744,7 @@ class SimplePipelineEngine(PipelineEngine):
         """Resolve a concrete domain for ``pipeline``.
         """
         domain = pipeline.domain(default=self._default_domain)
-        if domain is NotSpecified:
+        if domain is GENERIC:
             # TODO_SS: Better error message here.
             raise RuntimeError("Failed to infer domain for Pipeline.")
         return domain

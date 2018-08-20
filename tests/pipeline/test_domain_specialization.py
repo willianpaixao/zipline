@@ -154,8 +154,6 @@ class SpecializeTestCase(zf.ZiplineTestCase):
             col2 = Column(dtype=float)
 
         def do_checks(cls, colnames):
-            self.assertFalse(cls.can_specialize)
-
             # DataSets with concrete domains can't be specialized to other
             # concrete domains.
             with self.assertRaises(ValueError):
@@ -172,11 +170,7 @@ class SpecializeTestCase(zf.ZiplineTestCase):
             # entire dataset family.
             generic_non_root = cls.unspecialize()
 
-            # Even though it's generic, dataset created this way can't be
-            # specialized...
-            self.assertFalse(generic_non_root.can_specialize)
-
-            # ...except back to it's original domain.
+            # Allow specializing a generic non-root back to its family root.
             self.assertIs(generic_non_root.specialize(domain_param), cls)
             for name in colnames:
                 # Same deal for columns.

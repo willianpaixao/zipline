@@ -176,6 +176,7 @@ from zipline.pipeline.common import (
     TS_FIELD_NAME
 )
 from zipline.pipeline.data.dataset import DataSet, Column
+from zipline.pipeline.domain import GENERIC
 from zipline.pipeline.loaders.utils import (
     check_data_query_args,
     normalize_data_query_bounds,
@@ -524,7 +525,7 @@ def from_blaze(expr,
                resources=None,
                odo_kwargs=None,
                missing_values=None,
-               domain=NotSpecified,
+               domain=GENERIC,
                no_deltas_rule='warn',
                no_checkpoints_rule='warn'):
     """Create a Pipeline API object from a blaze expression.
@@ -553,7 +554,7 @@ def from_blaze(expr,
         scope for ``bz.compute``.
     odo_kwargs : dict, optional
         The keyword arguments to pass to odo when evaluating the expressions.
-    domain : zipline.pipeline.domain.Domain or NotSpecified
+    domain : zipline.pipeline.domain.Domain
         Domain of the dataset to be created.
     missing_values : dict[str -> any], optional
         A dict mapping column names to missing values for those columns.

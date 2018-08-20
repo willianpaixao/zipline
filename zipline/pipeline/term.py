@@ -44,7 +44,7 @@ from zipline.utils.sharedoc import (
     PIPELINE_DOWNSAMPLING_FREQUENCY_DOC,
 )
 
-from .domain import infer_domain
+from .domain import Domain, GENERIC, infer_domain
 from .downsample_helpers import expect_downsample_frequency
 from .sentinels import NotSpecified
 
@@ -55,12 +55,14 @@ class Term(with_metaclass(ABCMeta, object)):
     """
     # These are NotSpecified because a subclass is required to provide them.
     dtype = NotSpecified
-    domain = NotSpecified
     missing_value = NotSpecified
 
     # Subclasses aren't required to provide `params`.  The default behavior is
     # no params.
     params = ()
+
+    # All terms are generic by default.
+    domain = GENERIC
 
     # Determines if a term is safe to be used as a windowed input.
     window_safe = False
@@ -71,9 +73,9 @@ class Term(with_metaclass(ABCMeta, object)):
     _term_cache = WeakValueDictionary()
 
     def __new__(cls,
-                domain=domain,
-                dtype=dtype,
-                missing_value=missing_value,
+                domain=NotSpecified,
+                dtype=NotSpecified,
+                missing_value=NotSpecified,
                 window_safe=NotSpecified,
                 ndim=NotSpecified,
                 # params is explicitly not allowed to be passed to an instance.
@@ -90,7 +92,7 @@ class Term(with_metaclass(ABCMeta, object)):
         their inputs are both conceptually immutable.
         """
         # Subclasses can override these class-level attributes to provide
-        # default values.
+        # different default values for instances.
         if domain is NotSpecified:
             domain = cls.domain
         if dtype is NotSpecified:
@@ -236,10 +238,14 @@ class Term(with_metaclass(ABCMeta, object)):
         """
         Parameters
         ----------
-        domain : object
-            Unused placeholder.
+        domain : zipline.pipeline.domain.Domain
+            The domain of this term.
         dtype : np.dtype
             Dtype of this term's output.
+        missing_value : object
+            Missing value for this term.
+        ndim : 1 or 2
+            The dimensionality of this term.
         params : tuple[(str, hashable)]
             Tuple of key/value pairs of additional parameters.
         """
@@ -533,6 +539,12 @@ class ComputableTerm(Term):
         # Check inputs.
         if self.inputs is NotSpecified:
             raise TermInputsNotSpecified(termname=type(self).__name__)
+
+        if not isinstance(self.domain, Domain):
+            raise TypeError(
+                "Expected {}.domain to be an instance of Domain, "
+                "but got {}.".format(type(self).__name__, type(self.domain))
+            )
 
         # Check outputs.
         if self.outputs is NotSpecified:

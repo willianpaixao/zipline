@@ -11,6 +11,7 @@ from weakref import WeakKeyDictionary
 from toolz import first
 
 from zipline.pipeline.classifiers import Classifier, Latest as LatestClassifier
+from zipline.pipeline.domain import Domain, GENERIC
 from zipline.pipeline.factors import Factor, Latest as LatestFactor
 from zipline.pipeline.filters import Filter, Latest as LatestFilter
 from zipline.pipeline.sentinels import NotSpecified, sentinel
@@ -19,7 +20,7 @@ from zipline.pipeline.term import (
     LoadableTerm,
     validate_dtype,
 )
-from zipline.utils.input_validation import ensure_dtype
+from zipline.utils.input_validation import ensure_dtype, expect_types
 from zipline.utils.numpy_utils import NoDefaultMissingValue
 from zipline.utils.preprocess import preprocess
 
@@ -189,9 +190,9 @@ class BoundColumn(LoadableTerm):
         """
         Unspecialize a column to its generic form.
 
-        This is equivalent to ``column.specialize(NotSpecified)``.
+        This is equivalent to ``column.specialize(GENERIC)``.
         """
-        return self.specialize(NotSpecified)
+        return self.specialize(GENERIC)
 
     @property
     def dataset(self):
@@ -274,13 +275,25 @@ class DataSetMeta(type):
             # specializations.
             raise TypeError("Multiple dataset inheritance is not supported.")
 
+        # This marker is set in the class dictionary by `specialize` below.
         is_specialization = dict_.pop(IsSpecialization, False)
 
         newtype = super(DataSetMeta, mcls).__new__(mcls, name, bases, dict_)
-        # collect all of the column names that we inherit from our parents
+
+        if not isinstance(newtype.domain, Domain):
+            raise TypeError(
+                "Expected a Domain for {}.domain, but got {} instead.".format(
+                    newtype.__name__,
+                    type(newtype.domain),
+                )
+            )
+
+        # Collect all of the column names that we inherit from our parents.
         column_names = set().union(
             *(getattr(base, '_column_names', ()) for base in bases)
         )
+
+        # Collect any new columns from this dataset.
         for maybe_colname, maybe_column in iteritems(dict_):
             if isinstance(maybe_column, Column):
                 # add column names defined on our class
@@ -299,27 +312,7 @@ class DataSetMeta(type):
 
         return newtype
 
-    @property
-    def can_specialize(self):
-        """
-        A dataset can be specialized if it's generic and is the root of its
-        specialization family.
-        """
-        # NOTE: It's possible to create a generic dataset that's not the root
-        # of its family by doing something like:
-        #
-        # class MyDataSet(DataSet):
-        #     domain = USEquities
-        #
-        # generic = MyDataSet.unspecialize()
-        #
-        # Even though generic is unspecialized, we don't allow creating new
-        # specializations, since the root dataset can't be specialized.
-        return (
-            self.domain is NotSpecified
-            and '_domain_specializations' in vars(self)
-        )
-
+    @expect_types(domain=Domain)
     def specialize(self, domain):
         """
         Specialize a generic DataSet to a concrete domain.
@@ -342,11 +335,11 @@ class DataSetMeta(type):
         try:
             return self._domain_specializations[domain]
         except KeyError:
-            if domain is not NotSpecified and not self.can_specialize:
+            if not self._can_create_new_specialization(domain):
                 # This either means we're already a specialization and trying
                 # to create a new specialization, or we're the generic version
                 # of a root-specialized dataset, which we don't want to create
-                # new specializations of. Disallow both cases.
+                # new specializations of.
                 raise ValueError(
                     "Can't specialize {dataset} to new domain {new}.".format(
                         dataset=self.__name__,
@@ -362,20 +355,40 @@ class DataSetMeta(type):
         """
         Unspecialize a dataset to its generic form.
 
-        This is equivalent to ``dataset.specialize(NotSpecified)``.
+        This is equivalent to ``dataset.specialize(GENERIC)``.
         """
-        return self.specialize(NotSpecified)
+        return self.specialize(GENERIC)
+
+    def _can_create_new_specialization(self, domain):
+        # Always allow specializing to a generic domain.
+        if domain is GENERIC:
+            return True
+        elif '_domain_specializations' in vars(self):
+            # This branch is True if we're the root of a family.
+            # Allow specialization if we're generic.
+            return self.domain is GENERIC
+        else:
+            # If we're not the root of a family, we can't create any new
+            # specializations.
+            return False
 
     def _create_specialization(self, domain):
-        if self.domain is NotSpecified:
-            assert domain is not NotSpecified, \
-                "Domain specializations should be memoized!"
-        else:
-            assert domain is NotSpecified, \
-                "Can't specialize non-generic dataset to non-generic domain!"
+        # These are all assertions because we should have handled these cases
+        # already in specialize().
+        assert isinstance(domain, Domain)
+        assert domain not in self._domain_specializations, (
+            "Domain specializations should be memoized!"
+        )
+        if domain is not GENERIC:
+            assert self.domain is GENERIC, (
+                "Can't specialize dataset with domain {} to domain {}.".format(
+                    self.domain, domain,
+                )
+            )
 
-        # Create a new subclass of ``self`` with the given domain whose name is
-        # our name prefixed with domain.country_code.
+        # Create a new subclass of ``self`` with the given domain.
+        # Mark that it's a specialization so that we know not to create a new
+        # family for it.
         name = self.__name__
         bases = (self,)
         dict_ = {'domain': domain, IsSpecialization: True}
@@ -389,7 +402,7 @@ class DataSetMeta(type):
 
     @property
     def qualname(self):
-        if self.domain is NotSpecified:
+        if self.domain is GENERIC:
             specialization_key = ''
         else:
             specialization_key = '<' + self.domain.country_code + '>'
@@ -456,7 +469,7 @@ class DataSet(with_metaclass(DataSetMeta, object)):
     numeric. Doing so enables the use of `NaN` as a natural missing value,
     which has useful propagation semantics.
     """
-    domain = NotSpecified
+    domain = GENERIC
     ndim = 2
 
 
