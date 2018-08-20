@@ -34,6 +34,13 @@ else:
         """
         Return the fully-qualified name (ignoring inner classes) of a type.
         """
+        # If the obj has an explicitly-set __qualname__, use it.
+        try:
+            return getattr(obj, '__qualname__')
+        except AttributeError:
+            pass
+
+        # If not, build our own __qualname__ as best we can.
         module = obj.__module__
         if module in ('__builtin__', '__main__', 'builtins'):
             return obj.__name__
