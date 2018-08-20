@@ -1502,7 +1502,6 @@ class AssetFinder(object):
         numpy.putmask
         zipline.pipeline.engine.SimplePipelineEngine._compute_root_mask
         """
-        # TODO_SS: Should we just accept a single string here?
         if isinstance(country_codes, string_types):
             raise TypeError(
                 "Got string {!r} instead of an iterable of strings in "
