@@ -7,11 +7,11 @@ from zipline.pipeline.data import Column, DataSet
 from zipline.pipeline.data.testing import TestingDataSet
 from zipline.pipeline.domain import (
     AmbiguousDomain,
-    CanadaEquities,
+    CA_EQUITIES,
     GENERIC,
     infer_domain,
-    UKEquities,
-    USEquities,
+    GB_EQUITIES,
+    US_EQUITIES,
 )
 from zipline.pipeline.factors import CustomFactor
 import zipline.testing.fixtures as zf
@@ -44,7 +44,7 @@ class MixedGenericsTestCase(zf.WithSeededRandomPipelineEngine,
         development where having a mix of generic and non-generic columns in
         the term graph caused bugs in our extra row accounting.
         """
-        USTestingDataSet = TestingDataSet.specialize(USEquities)
+        USTestingDataSet = TestingDataSet.specialize(US_EQUITIES)
         base_terms = {
             'sum3_generic': Sum.create(TestingDataSet.float_col, 3),
             'sum3_special': Sum.create(USTestingDataSet.float_col, 3),
@@ -53,7 +53,7 @@ class MixedGenericsTestCase(zf.WithSeededRandomPipelineEngine,
         }
 
         def run(ts):
-            pipe = Pipeline(ts, domain=USEquities)
+            pipe = Pipeline(ts, domain=US_EQUITIES)
             start = self.trading_days[-5]
             end = self.trading_days[-1]
             return self.run_pipeline(pipe, start, end)
@@ -69,7 +69,7 @@ class MixedGenericsTestCase(zf.WithSeededRandomPipelineEngine,
 
 class SpecializeTestCase(zf.ZiplineTestCase):
 
-    @parameter_space(domain=[USEquities, CanadaEquities, UKEquities])
+    @parameter_space(domain=[US_EQUITIES, CA_EQUITIES, GB_EQUITIES])
     def test_specialize(self, domain):
         class MyData(DataSet):
             col1 = Column(dtype=float)
@@ -115,7 +115,7 @@ class SpecializeTestCase(zf.ZiplineTestCase):
         do_checks(MyData, ['col1', 'col2', 'col3'])
         do_checks(MyDataSubclass, ['col1', 'col2', 'col3', 'col4'])
 
-    @parameter_space(domain=[USEquities, CanadaEquities, UKEquities])
+    @parameter_space(domain=[US_EQUITIES, CA_EQUITIES, GB_EQUITIES])
     def test_unspecialize(self, domain):
 
         class MyData(DataSet):
@@ -147,9 +147,9 @@ class SpecializeTestCase(zf.ZiplineTestCase):
         do_checks(MyData, ['col1', 'col2', 'col3'])
         do_checks(MyDataSubclass, ['col1', 'col2', 'col3', 'col4'])
 
-    @parameter_space(domain_param=[USEquities, CanadaEquities])
+    @parameter_space(domain_param=[US_EQUITIES, CA_EQUITIES])
     def test_specialized_root(self, domain_param):
-        different_domain = UKEquities
+        different_domain = GB_EQUITIES
 
         class MyData(DataSet):
             domain = domain_param
@@ -226,7 +226,7 @@ class InferDomainTestCase(zf.ZiplineTestCase):
         self.check([D.c1, D.c2, D.c3], GENERIC)
         self.check([D.c1.latest, D.c2.latest, D.c3.latest], GENERIC)
 
-    @parameter_space(domain=[USEquities, UKEquities])
+    @parameter_space(domain=[US_EQUITIES, GB_EQUITIES])
     def test_all_non_generic(self, domain):
         D_s = D.specialize(domain)
         self.check([D_s.c1], domain)
@@ -234,7 +234,7 @@ class InferDomainTestCase(zf.ZiplineTestCase):
         self.check([D_s.c1, D_s.c2, D_s.c3], domain)
         self.check([D_s.c1, D_s.c2, D_s.c3.latest], domain)
 
-    @parameter_space(domain=[USEquities, UKEquities])
+    @parameter_space(domain=[US_EQUITIES, GB_EQUITIES])
     def test_mix_generic_and_specialized(self, domain):
         D_s = D.specialize(domain)
         self.check([D.c1, D_s.c3], domain)
@@ -242,36 +242,36 @@ class InferDomainTestCase(zf.ZiplineTestCase):
         self.check([D.c1, D_s.c2, D_s.c3], domain)
 
     def test_conflict(self):
-        D_US = D.specialize(USEquities)
-        D_CA = D.specialize(CanadaEquities)
-        D_GB = D.specialize(UKEquities)
+        D_US = D.specialize(US_EQUITIES)
+        D_CA = D.specialize(CA_EQUITIES)
+        D_GB = D.specialize(GB_EQUITIES)
 
         # Conflict of size 2.
         self.check_fails(
             [D_US.c1, D_CA.c1],
-            [CanadaEquities, USEquities],
+            [CA_EQUITIES, US_EQUITIES],
         )
 
         # Conflict of size 3.
         self.check_fails(
             [D_US.c1, D_CA.c1, D_GB.c1],
-            [CanadaEquities, UKEquities, USEquities],
+            [CA_EQUITIES, GB_EQUITIES, US_EQUITIES],
         )
 
         # Make sure each domain only appears once if there are duplicates.
         self.check_fails(
             [D_US.c1, D_CA.c1, D_CA.c2],
-            [CanadaEquities, USEquities],
+            [CA_EQUITIES, US_EQUITIES],
         )
 
         # Make sure that we filter GENERIC out of the error.
         self.check_fails(
             [D_US.c1, D_CA.c1, D.c1],
-            [CanadaEquities, USEquities],
+            [CA_EQUITIES, US_EQUITIES],
         )
 
     def test_ambiguous_domain_repr(self):
-        err = AmbiguousDomain([CanadaEquities, UKEquities, USEquities])
+        err = AmbiguousDomain([CA_EQUITIES, GB_EQUITIES, US_EQUITIES])
         result = str(err)
         expected = dedent(
             """\

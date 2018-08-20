@@ -18,7 +18,7 @@ from zipline.pipeline.common import (
     SID_FIELD_NAME,
 )
 from zipline.pipeline.data import DataSet, Column
-from zipline.pipeline.domain import USEquities
+from zipline.pipeline.domain import US_EQUITIES
 from zipline.pipeline.loaders.events import EventsLoader
 from zipline.pipeline.loaders.blaze.events import BlazeEventsLoader
 from zipline.pipeline.loaders.utils import (
@@ -68,7 +68,7 @@ class EventDataSet(DataSet):
     )
 
 
-EventDataSet_US = EventDataSet.specialize(USEquities)
+EventDataSet_US = EventDataSet.specialize(US_EQUITIES)
 
 
 critical_dates = pd.to_datetime([
@@ -342,7 +342,7 @@ class EventsLoaderEmptyTestCase(WithAssetFinder,
         results = engine.run_pipeline(
             Pipeline({
                 c.name: c.latest for c in EventDataSet_US.columns
-            }, domain=USEquities),
+            }, domain=US_EQUITIES),
             start_date=self.trading_days[0],
             end_date=self.trading_days[-1],
         )
@@ -405,7 +405,7 @@ class EventsLoaderTestCase(WithAssetFinder,
         cls.engine = SimplePipelineEngine(
             lambda c: cls.loader,
             asset_finder=cls.asset_finder,
-            default_domain=USEquities,
+            default_domain=US_EQUITIES,
         )
 
     @classmethod

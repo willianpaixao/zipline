@@ -7,7 +7,7 @@ from pandas import DataFrame, Timestamp
 from six import iteritems
 
 from zipline.utils.compat import wraps
-from zipline.pipeline.domain import USEquities
+from zipline.pipeline.domain import US_EQUITIES
 from zipline.pipeline.engine import SimplePipelineEngine
 from zipline.pipeline import ExecutionPlan
 from zipline.pipeline.term import AssetExists, InputDates
@@ -98,7 +98,7 @@ class BaseUSEquityPipelineTestCase(WithTradingSessions,
         engine = SimplePipelineEngine(
             get_loader,
             self.asset_finder,
-            default_domain=USEquities,
+            default_domain=US_EQUITIES,
         )
         if mask is None:
             mask = self.default_asset_exists_mask
@@ -127,7 +127,7 @@ class BaseUSEquityPipelineTestCase(WithTradingSessions,
         """
         start_date, end_date = mask.index[[0, -1]]
         graph = ExecutionPlan(
-            domain=USEquities,
+            domain=US_EQUITIES,
             terms=terms,
             start_date=start_date,
             end_date=end_date,

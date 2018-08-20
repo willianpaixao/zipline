@@ -127,9 +127,9 @@ class EquityCalendarDomain(Domain):
         )
 
 
-USEquities = EquityCalendarDomain(CountryCode.UNITED_STATES, 'NYSE')
-CanadaEquities = EquityCalendarDomain(CountryCode.CANADA, 'TSX')
-UKEquities = EquityCalendarDomain(CountryCode.UNITED_KINGDOM, 'LSE')
+US_EQUITIES = EquityCalendarDomain(CountryCode.UNITED_STATES, 'NYSE')
+CA_EQUITIES = EquityCalendarDomain(CountryCode.CANADA, 'TSX')
+GB_EQUITIES = EquityCalendarDomain(CountryCode.UNITED_KINGDOM, 'LSE')
 
 
 def infer_domain(terms):

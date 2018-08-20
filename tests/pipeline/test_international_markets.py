@@ -8,9 +8,9 @@ from trading_calendars import get_calendar
 from zipline.assets.synthetic import make_rotating_equity_info
 from zipline.data.in_memory_daily_bars import InMemoryDailyBarReader
 from zipline.pipeline.domain import (
-    CanadaEquities,
-    UKEquities,
-    USEquities,
+    CA_EQUITIES,
+    GB_EQUITIES,
+    US_EQUITIES,
 )
 from zipline.pipeline import Pipeline
 from zipline.pipeline.data import EquityPricing, USEquityPricing
@@ -107,15 +107,15 @@ class WithInternationalPricingPipelineEngine(WithInternationalDailyBarData):
 
         adjustments = NullAdjustmentReader()
         cls.loaders = {
-            UKEquities: EquityPricingLoader(
+            GB_EQUITIES: EquityPricingLoader(
                 cls.daily_bar_readers['LSE'],
                 adjustments,
             ),
-            USEquities: EquityPricingLoader(
+            US_EQUITIES: EquityPricingLoader(
                 cls.daily_bar_readers['NYSE'],
                 adjustments,
             ),
-            CanadaEquities: EquityPricingLoader(
+            CA_EQUITIES: EquityPricingLoader(
                 cls.daily_bar_readers['TSX'],
                 adjustments,
             )
@@ -177,7 +177,7 @@ class InternationalEquityTestCase(WithInternationalPricingPipelineEngine,
     def make_exchanges_info(cls, equities, futures, root_symbols):
         return cls.EXCHANGE_INFO
 
-    @parameter_space(domain=[CanadaEquities, USEquities, UKEquities])
+    @parameter_space(domain=[CA_EQUITIES, US_EQUITIES, GB_EQUITIES])
     def test_generic_pipeline_with_explicit_domain(self, domain):
         calendar = domain.calendar
         pipe = Pipeline({
@@ -243,8 +243,7 @@ class InternationalEquityTestCase(WithInternationalPricingPipelineEngine,
             'low': EquityPricing.low.latest,
             'close': EquityPricing.close.latest,
             'volume': EquityPricing.volume.latest,
-        }, domain=USEquities)
-
+        }, domain=US_EQUITIES)
         dataset_specialized = Pipeline({
             'open': USEquityPricing.open.latest,
             'high': USEquityPricing.high.latest,

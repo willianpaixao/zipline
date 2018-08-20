@@ -15,7 +15,7 @@ from zipline.pipeline import (
     SimplePipelineEngine,
 )
 from zipline.pipeline.data.testing import TestingDataSet
-from zipline.pipeline.domain import USEquities, EquitySessionDomain
+from zipline.pipeline.domain import US_EQUITIES, EquitySessionDomain
 from zipline.pipeline.factors import SimpleMovingAverage
 from zipline.pipeline.filters.smoothing import All
 from zipline.testing import ZiplineTestCase, parameter_space, ExplodingObject
@@ -598,7 +598,7 @@ class DownsampledPipelineTestCase(WithSeededRandomPipelineEngine,
 
     ASSET_FINDER_EQUITY_SIDS = tuple(range(10))
     ASSET_FINDER_COUNTRY_CODE = 'US'
-    SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = USEquities
+    SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = US_EQUITIES
 
     def check_downsampled_term(self, term):
 

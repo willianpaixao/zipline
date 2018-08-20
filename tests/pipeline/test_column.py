@@ -9,7 +9,7 @@ from pandas.util.testing import assert_frame_equal
 from zipline.lib.labelarray import LabelArray
 from zipline.pipeline import Pipeline
 from zipline.pipeline.data.testing import TestingDataSet as TDS
-from zipline.pipeline.domain import USEquities
+from zipline.pipeline.domain import US_EQUITIES
 from zipline.testing.fixtures import (
     WithSeededRandomPipelineEngine,
     WithTradingSessions,
@@ -28,7 +28,7 @@ class LatestTestCase(WithSeededRandomPipelineEngine,
     SEEDED_RANDOM_PIPELINE_SEED = 100
     ASSET_FINDER_EQUITY_SIDS = list(range(5))
     ASSET_FINDER_COUNTRY_CODE = 'US'
-    SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = USEquities
+    SEEDED_RANDOM_PIPELINE_DEFAULT_DOMAIN = US_EQUITIES
 
     @classmethod
     def init_class_fixtures(cls):

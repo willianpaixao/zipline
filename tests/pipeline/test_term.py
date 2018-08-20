@@ -30,7 +30,7 @@ from zipline.pipeline import (
 )
 from zipline.pipeline.data import Column, DataSet
 from zipline.pipeline.data.testing import TestingDataSet
-from zipline.pipeline.domain import USEquities
+from zipline.pipeline.domain import US_EQUITIES
 from zipline.pipeline.expression import NUMEXPR_MATH_FUNCS
 from zipline.pipeline.factors import RecarrayField
 from zipline.pipeline.sentinels import NotSpecified
@@ -166,7 +166,7 @@ class DependencyResolutionTestCase(WithTradingSessions, ZiplineTestCase):
     execution_plan_start = pd.Timestamp('2014-06-01', tz='UTC')
     execution_plan_end = pd.Timestamp('2014-06-30', tz='UTC')
 
-    DOMAIN = USEquities
+    DOMAIN = US_EQUITIES
 
     def check_dependency_order(self, ordered_terms):
         seen = set()

@@ -22,7 +22,7 @@ from zipline.finance.asset_restrictions import NoRestrictions
 from zipline.utils.memoize import classlazyval
 from zipline.pipeline import SimplePipelineEngine
 from zipline.pipeline.data import USEquityPricing
-from zipline.pipeline.domain import GENERIC, USEquities
+from zipline.pipeline.domain import GENERIC, US_EQUITIES
 from zipline.pipeline.loaders import USEquityPricingLoader
 from zipline.pipeline.loaders.testing import make_seeded_random_loader
 from zipline.protocol import BarData
@@ -1548,7 +1548,7 @@ class WithUSEquityPricingPipelineEngine(WithAdjustmentReader,
         cls.pipeline_engine = SimplePipelineEngine(
             get_loader=get_loader,
             asset_finder=cls.asset_finder,
-            default_domain=USEquities,
+            default_domain=US_EQUITIES,
         )
 
     @classmethod

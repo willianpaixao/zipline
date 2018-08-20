@@ -3,7 +3,7 @@ Dataset representing OHLCV data.
 """
 from zipline.utils.numpy_utils import float64_dtype
 
-from ..domain import USEquities
+from ..domain import US_EQUITIES
 from .dataset import Column, DataSet
 
 
@@ -19,4 +19,4 @@ class EquityPricing(DataSet):
 
 
 # Backwards compat alias.
-USEquityPricing = EquityPricing.specialize(USEquities)
+USEquityPricing = EquityPricing.specialize(US_EQUITIES)
