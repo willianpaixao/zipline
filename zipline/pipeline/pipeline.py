@@ -251,6 +251,20 @@ class Pipeline(object):
         if term.ndim == 1:
             raise UnsupportedPipelineOutput(column_name=column_name, term=term)
 
+    @property
+    def _output_terms(self):
+        """
+        A list of terms that are outputs of this pipeline.
+
+        Includes all terms registered as data outputs of the pipeline, plus the
+        screen, if present.
+        """
+        terms = self._columns.values()
+        screen = self.screen
+        if screen is not None:
+            terms.append(screen)
+        return terms
+
     @expect_types(default=Domain)
     def domain(self, default):
         """
@@ -279,7 +293,7 @@ class Pipeline(object):
         """
         # Always compute our inferred domain to ensure that it's compatible
         # with our explicit domain.
-        inferred = infer_domain(self.columns.values())
+        inferred = infer_domain(self._output_terms)
 
         if inferred is GENERIC and self._domain is GENERIC:
             # Both generic. Fall back to default.
