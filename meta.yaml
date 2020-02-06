@@ -1,0 +1,21 @@
+{% set data = load_setup_py_data() %}
+
+package:
+  name: zipline
+  version: {{ GIT_DESCRIBE_TAG }}
+
+source:
+  git_url: https://github.com/quantopian/zipline.git
+
+build:
+  number: {{ GIT_DESCRIBE_NUMBER }}
+  string: {{ GIT_BUILD_STR }}
+  script: python setup.py install --single-version-externally-managed --record=record.txt
+
+requirements:
+  build:
+    {% for req in data.get('build_requires', []) -%}
+    - {{ req }}
+    {% endfor %}
+  host:
+    - python
